@@ -6,6 +6,7 @@ export interface User {
   phoneNumber: string;
   occupation: string;
   createdAt: Date;
+  role?: 'admin' | 'operator' | 'customer';
 }
 
 export interface Customer {
@@ -17,6 +18,8 @@ export interface Customer {
   mandal: string;
   pincode: string;
   boxId: string;
+  email?: string;
+  operatorId?: string;
   startDate: Date;
   endDate?: Date;
   billAmount: number;

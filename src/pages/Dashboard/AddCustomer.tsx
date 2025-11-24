@@ -1,11 +1,14 @@
 import { useState } from 'react';
-import { collection, addDoc } from 'firebase/firestore';
+import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
 import { db } from '../../config/firebase';
 import { motion } from 'framer-motion';
 import { UserPlus, Calendar, IndianRupee } from 'lucide-react';
 import { format } from 'date-fns';
+import { useAuth } from '../../contexts/AuthContext';
+import { logActivity } from '../../utils/activityLogger';
 
 export const AddCustomer = () => {
+  const { userData } = useAuth();
   const [formData, setFormData] = useState({
     firstName: '',
     lastName: '',
@@ -30,13 +33,32 @@ export const AddCustomer = () => {
     e.preventDefault();
     try {
       setLoading(true);
-      await addDoc(collection(db, 'customers'), {
+      // If bill amount is 0, automatically mark as paid
+      const billAmount = Number(formData.billAmount);
+      const billStatus = billAmount === 0 ? 'Paid' : formData.billStatus;
+      
+      const docRef = await addDoc(collection(db, 'customers'), {
         ...formData,
+        billStatus,
         startDate: new Date(formData.startDate),
-        billAmount: Number(formData.billAmount),
-        createdAt: new Date(),
-        updatedAt: new Date()
+        billAmount,
+        operatorId: userData?.id,
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp()
       });
+
+      // Log activity
+      const customerName = `${formData.firstName} ${formData.lastName}`;
+      await logActivity(
+        userData?.id || 'unknown',
+        userData?.firstName || 'User',
+        'CREATE',
+        'CUSTOMER',
+        docRef.id,
+        customerName,
+        `Added new customer with Box ID: ${formData.boxId}`
+      );
+
       setMessage('Customer added successfully!');
       setFormData({
         firstName: '',
@@ -209,6 +231,9 @@ export const AddCustomer = () => {
               min="0"
               className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
             />
+            {Number(formData.billAmount) === 0 && (
+              <p className="text-sm text-green-600 mt-1">✓ Bill amount is 0 - will be marked as Paid</p>
+            )}
           </div>
 
           <div>

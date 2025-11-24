@@ -3,8 +3,7 @@ import { collection, query, where, getDocs } from 'firebase/firestore';
 import { db } from '../../config/firebase';
 import { motion } from 'framer-motion';
 import { Search } from 'lucide-react';
-import { Customer } from '../../types';
-import { format } from 'date-fns';
+import type { Customer } from '../../types';
 
 export const SearchCustomer = () => {
   const [searchType, setSearchType] = useState<'firstName' | 'lastName' | 'boxId' | 'village'>('boxId');
@@ -39,6 +38,12 @@ export const SearchCustomer = () => {
       setMessage('Error searching customers');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleKeyPress = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') {
+      handleSearch();
     }
   };
 
@@ -81,6 +86,7 @@ export const SearchCustomer = () => {
             type="text"
             value={searchValue}
             onChange={(e) => setSearchValue(e.target.value)}
+            onKeyPress={handleKeyPress}
             placeholder={`Enter ${searchType}`}
             className="flex-1 px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
           />

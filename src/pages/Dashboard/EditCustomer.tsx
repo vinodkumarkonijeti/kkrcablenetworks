@@ -1,10 +1,11 @@
 import { useState } from 'react';
-import { collection, query, where, getDocs, doc, updateDoc } from 'firebase/firestore';
+import { collection, query, where, getDocs, doc, updateDoc, serverTimestamp } from 'firebase/firestore';
 import { db } from '../../config/firebase';
 import { motion } from 'framer-motion';
 import { Edit, Search, Calendar, IndianRupee } from 'lucide-react';
+import UploadDocument from '../../components/UploadDocument';
 import { format } from 'date-fns';
-import { Customer } from '../../types';
+import type { Customer } from '../../types';
 
 export const EditCustomer = () => {
   const [searchBoxId, setSearchBoxId] = useState('');
@@ -39,7 +40,7 @@ export const EditCustomer = () => {
           village: customerData.village,
           boxId: customerData.boxId,
           billAmount: customerData.billAmount.toString(),
-          endDate: customerData.endDate ? format(customerData.endDate.toDate?.() || new Date(), 'yyyy-MM-dd') : ''
+          endDate: customerData.endDate ? format(new Date(customerData.endDate as any), 'yyyy-MM-dd') : ''
         });
       } else {
         setMessage('Customer not found with this Box ID');
@@ -49,6 +50,12 @@ export const EditCustomer = () => {
       setMessage('Error searching customer');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleSearchKeyPress = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter' && searchBoxId.trim()) {
+      handleSearch();
     }
   };
 
@@ -62,6 +69,10 @@ export const EditCustomer = () => {
 
     try {
       setLoading(true);
+      // If bill amount is 0, automatically mark as paid
+      const billAmount = Number(formData.billAmount);
+      const billStatus = billAmount === 0 ? 'Paid' : customer.billStatus;
+      
       const customerRef = doc(db, 'customers', customer.id);
       await updateDoc(customerRef, {
         firstName: formData.firstName,
@@ -69,9 +80,10 @@ export const EditCustomer = () => {
         phoneNumber: formData.phoneNumber,
         village: formData.village,
         boxId: formData.boxId,
-        billAmount: Number(formData.billAmount),
+        billAmount,
+        billStatus,
         endDate: formData.endDate ? new Date(formData.endDate) : null,
-        updatedAt: new Date()
+        updatedAt: serverTimestamp()
       });
       setMessage('Customer updated successfully!');
       setTimeout(() => {
@@ -116,6 +128,7 @@ export const EditCustomer = () => {
             type="text"
             value={searchBoxId}
             onChange={(e) => setSearchBoxId(e.target.value)}
+            onKeyPress={handleSearchKeyPress}
             placeholder="Enter Box ID"
             className="flex-1 px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
           />
@@ -217,6 +230,9 @@ export const EditCustomer = () => {
                 min="0"
                 className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
               />
+              {Number(formData.billAmount) === 0 && (
+                <p className="text-sm text-green-600 mt-1">✓ Bill amount is 0 - will be marked as Paid</p>
+              )}
             </div>
 
             <div>
@@ -242,6 +258,12 @@ export const EditCustomer = () => {
             {loading ? 'Updating...' : 'Update Customer'}
           </button>
         </form>
+      )}
+
+      {customer && (
+        <div className="mt-6">
+          <UploadDocument customerId={customer.id} />
+        </div>
       )}
     </motion.div>
   );

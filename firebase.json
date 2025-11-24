@@ -18,5 +18,15 @@
         "destination": "/index.html"
       }
     ]
+  },
+  "storage": [
+    {
+      "target": "default",
+      "rules": "storage.rules"
+    }
+  ]
+  ,
+  "firestore": {
+    "rules": "firestore.rules"
   }
 }

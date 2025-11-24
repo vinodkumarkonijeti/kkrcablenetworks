@@ -1,0 +1,51 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function getRole() {
+      return isSignedIn() ? get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role : null;
+    }
+
+    function isAdmin() {
+      return getRole() == 'admin';
+    }
+
+    function isOperator() {
+      return getRole() == 'operator';
+    }
+
+    // Users: a user can read/write their own profile; admins can read/write all
+    match /users/{userId} {
+      allow read: if isSignedIn() && (request.auth.uid == userId || isAdmin());
+      allow write: if isSignedIn() && (request.auth.uid == userId || isAdmin());
+    }
+
+    // Customers: signed-in users can read; operators and admins can write
+    match /customers/{customerId} {
+      allow read: if isSignedIn();
+      allow create, update, delete: if isSignedIn() && (isAdmin() || isOperator());
+    }
+
+    // Bills: signed-in users can read; operators & admins can write
+    match /bills/{billId} {
+      allow read: if isSignedIn();
+      allow create, update, delete: if isSignedIn() && (isAdmin() || isOperator());
+    }
+
+    // Notifications: signed-in users can read and write
+    match /notifications/{notifId} {
+      allow read, write: if isSignedIn();
+    }
+
+    // Documents subcollections under customers handled by storage rules
+
+    // Deny everything else
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

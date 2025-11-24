@@ -83,3 +83,65 @@ exports.monthlyBillingAutomation = functions.pubsub
       throw error;
     }
   });
+
+// Daily backup of customers and bills to Cloud Storage as JSON
+exports.dailyBackup = functions.pubsub
+  .schedule('0 2 * * *') // every day at 02:00
+  .timeZone('Asia/Kolkata')
+  .onRun(async (context) => {
+    try {
+      const db = admin.firestore();
+      const bucket = admin.storage().bucket();
+
+      const customersSnap = await db.collection('customers').get();
+      const billsSnap = await db.collection('bills').get();
+
+      const customers = customersSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
+      const bills = billsSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
+
+      const now = new Date().toISOString().replace(/[:.]/g, '-');
+      const customersFile = `backups/customers_${now}.json`;
+      const billsFile = `backups/bills_${now}.json`;
+
+      // Save JSON files to the default bucket
+      await bucket.file(customersFile).save(JSON.stringify(customers), { contentType: 'application/json' });
+      await bucket.file(billsFile).save(JSON.stringify(bills), { contentType: 'application/json' });
+
+      console.log('Daily backup completed:', customersFile, billsFile);
+      return null;
+    } catch (error) {
+      console.error('Error during daily backup:', error);
+      throw error;
+    }
+  });
+
+// Auto-deactivate customers whose endDate is in the past
+exports.autoDeactivate = functions.pubsub
+  .schedule('0 3 * * *') // every day at 03:00
+  .timeZone('Asia/Kolkata')
+  .onRun(async (context) => {
+    try {
+      const db = admin.firestore();
+      const today = new Date();
+
+      const q = db.collection('customers').where('status', '==', 'Active').where('endDate', '<=', today);
+      const snap = await q.get();
+
+      if (snap.empty) {
+        console.log('No customers to deactivate');
+        return null;
+      }
+
+      const batch = db.batch();
+      snap.forEach((doc) => {
+        batch.update(doc.ref, { status: 'Deactive', updatedAt: new Date() });
+      });
+
+      await batch.commit();
+      console.log(`Auto-deactivated ${snap.size} customers`);
+      return null;
+    } catch (error) {
+      console.error('Error during auto-deactivate:', error);
+      throw error;
+    }
+  });
