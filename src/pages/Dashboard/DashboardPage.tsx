@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
 import {
   Users,
@@ -23,7 +23,6 @@ import {
   Area
 } from 'recharts';
 import { supabase } from '../../lib/supabase';
-import { Customer, Bill } from '../../types';
 
 const StatsCard = ({ title, value, icon: Icon, color, trend }: any) => (
   <motion.div
@@ -64,48 +63,64 @@ const DashboardPage = () => {
   useEffect(() => {
     fetchStats();
 
-    // Realtime subscriptions
+    let timeoutId: NodeJS.Timeout;
     const channel = supabase
       .channel('db-changes')
       .on(
         'postgres_changes',
         { event: '*', table: 'customers', schema: 'public' },
-        () => fetchStats()
+        () => {
+          clearTimeout(timeoutId);
+          timeoutId = setTimeout(fetchStats, 1500);
+        }
       )
       .on(
         'postgres_changes',
         { event: '*', table: 'bills', schema: 'public' },
-        () => fetchStats()
+        () => {
+          clearTimeout(timeoutId);
+          timeoutId = setTimeout(fetchStats, 1500);
+        }
       )
       .subscribe();
 
     return () => {
       supabase.removeChannel(channel);
+      clearTimeout(timeoutId);
     };
   }, []);
 
   const fetchStats = async () => {
     try {
-      // Fetch stats from Supabase
-      const { data: customers } = await supabase.from('customers').select('status');
-      const { data: bills } = await supabase.from('bills').select('paid_status, amount, created_at');
+      // Fetch specifically needed counts and sums
+      const [customersRes, activeRes, billsRes, revenueRes] = await Promise.all([
+        supabase.from('customers').select('status', { count: 'exact', head: true }),
+        supabase.from('customers').select('status', { count: 'exact', head: true }).eq('status', 'active'),
+        supabase.from('bills').select('paid_status, amount, created_at'), // Still need for chart, but restricted fields
+        supabase.from('bills').select('amount').eq('paid_status', 'paid')
+      ]);
 
-      const total = customers?.length || 0;
-      const active = customers?.filter(c => c.status === 'active').length || 0;
+      const total = customersRes.count || 0;
+      const active = activeRes.count || 0;
       const deactive = total - active;
 
-      const revenue = bills?.filter(b => b.paid_status === 'paid').reduce((sum, b) => sum + Number(b.amount), 0) || 0;
-      const paid = bills?.filter(b => b.paid_status === 'paid').length || 0;
-      const unpaid = (bills?.length || 0) - paid;
+      const revenue = revenueRes.data?.reduce((sum, b) => sum + Number(b.amount), 0) || 0;
+      const paidCount = billsRes.data?.filter(b => b.paid_status === 'paid').length || 0;
+      const unpaid = (billsRes.data?.length || 0) - paidCount;
 
-      setStats({ total, active, deactive, revenue, paid, unpaid });
+      setStats({ total, active, deactive, revenue, paid: paidCount, unpaid });
 
-      // Process revenue data for chart
-      const monthlyRevenue = (bills || []).reduce((acc: any, bill) => {
-        const month = new Date(bill.created_at).toLocaleString('default', { month: 'short' });
-        acc[month] = (acc[month] || 0) + (bill.paid_status === 'paid' ? Number(bill.amount) : 0);
-        return acc;
-      }, {});
+      // Process revenue data for chart (limited to last 6 months for performance)
+      const sixMonthsAgo = new Date();
+      sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
+
+      const monthlyRevenue = (billsRes.data || [])
+        .filter(b => b.paid_status === 'paid' && new Date(b.created_at) >= sixMonthsAgo)
+        .reduce((acc: any, bill) => {
+          const month = new Date(bill.created_at).toLocaleString('default', { month: 'short' });
+          acc[month] = (acc[month] || 0) + Number(bill.amount);
+          return acc;
+        }, {});
 
       const chartData = Object.keys(monthlyRevenue).map(month => ({
         name: month,
@@ -129,6 +144,14 @@ const DashboardPage = () => {
     { name: 'Active', value: stats.active },
     { name: 'Deactive', value: stats.deactive }
   ];
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-96">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
@@ -216,8 +239,8 @@ const DashboardPage = () => {
                     paddingAngle={8}
                     dataKey="value"
                   >
-                    {pieData.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={entry.color} />
+                    {pieData.map((_, index) => (
+                      <Cell key={`cell-${index}`} fill={pieData[index].color} />
                     ))}
                   </Pie>
                   <Tooltip />

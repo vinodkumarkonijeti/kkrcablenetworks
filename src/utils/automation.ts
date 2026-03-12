@@ -40,7 +40,7 @@ export const sendAutomationMessage = async ({ phone, customerName, type, details
     // 2. Return the WhatsApp link (Manual trigger for now as requested for reliability)
     const encodedMessage = encodeURIComponent(message);
     const whatsappLink = `https://wa.me/${formattedPhone}?text=${encodedMessage}`;
-    
+
     return whatsappLink;
 };
 
@@ -54,6 +54,6 @@ export const generateOperatorMonthlyReport = async (operatorPhone: string, stats
 
     const cleanPhone = operatorPhone.replace(/\D/g, '');
     const formattedPhone = cleanPhone.startsWith('91') ? cleanPhone : `91${cleanPhone}`;
-    
+
     return `https://wa.me/${formattedPhone}?text=${encodeURIComponent(message)}`;
 };

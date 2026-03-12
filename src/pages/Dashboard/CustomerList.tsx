@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo, useCallback } from 'react';
 import { motion } from 'framer-motion';
 import { Users, Trash2, Eye, Download, FileText } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
@@ -22,7 +22,7 @@ export const CustomerList = () => {
   const [showSuggestions, setShowSuggestions] = useState(false);
   const { addToast } = useToast();
 
-  const fetchCustomers = async () => {
+  const fetchCustomers = useCallback(async () => {
     setLoading(true);
     const { data } = await supabase.from('customers').select('*').order('name');
     const all = data ?? [];
@@ -32,18 +32,26 @@ export const CustomerList = () => {
     setDeactiveCustomers(deactive);
     setAllVillages([...new Set(all.map((c) => c.village).filter(Boolean))]);
     setLoading(false);
-  };
+  }, []);
 
   useEffect(() => {
     fetchCustomers();
 
+    let timeoutId: NodeJS.Timeout;
     const channel = supabase
       .channel('customer-list')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'customers' }, fetchCustomers)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'customers' }, () => {
+        // Debounce refetch to avoid rapid-fire updates
+        clearTimeout(timeoutId);
+        timeoutId = setTimeout(fetchCustomers, 1000);
+      })
       .subscribe();
 
-    return () => { supabase.removeChannel(channel); };
-  }, []);
+    return () => { 
+      supabase.removeChannel(channel); 
+      clearTimeout(timeoutId);
+    };
+  }, [fetchCustomers]);
 
   const handleDelete = async (id: string) => {
     const { error } = await supabase.from('customers').delete().eq('id', id);
@@ -71,36 +79,43 @@ export const CustomerList = () => {
     }
   };
 
-  const getFiltered = (customers: any[]) => {
-    let list = [...customers];
-    if (searchQuery.trim()) {
-      const lower = searchQuery.toLowerCase();
-      list = list.filter((c) =>
-        c.name?.toLowerCase().includes(lower) || c.box_id?.toLowerCase().includes(lower)
-      );
-    }
-    if (filterVillage) list = list.filter((c) => c.village === filterVillage);
-    list.sort((a, b) => {
+  const filteredActive = useMemo(() => {
+    const lower = searchQuery.toLowerCase().trim();
+    return activeCustomers.filter(c => 
+      (!lower || c.name?.toLowerCase().includes(lower) || c.box_id?.toLowerCase().includes(lower)) &&
+      (!filterVillage || c.village === filterVillage)
+    ).sort((a, b) => {
       if (sortBy === 'name') return (a.name || '').localeCompare(b.name || '');
       if (sortBy === 'village') return (a.village || '').localeCompare(b.village || '');
       if (sortBy === 'amount') return (b.monthly_fee ?? 0) - (a.monthly_fee ?? 0);
       return 0;
     });
-    return list;
-  };
+  }, [activeCustomers, searchQuery, filterVillage, sortBy]);
+
+  const filteredDeactive = useMemo(() => {
+    const lower = searchQuery.toLowerCase().trim();
+    return deactiveCustomers.filter(c => 
+      (!lower || c.name?.toLowerCase().includes(lower) || c.box_id?.toLowerCase().includes(lower)) &&
+      (!filterVillage || c.village === filterVillage)
+    ).sort((a, b) => {
+      if (sortBy === 'name') return (a.name || '').localeCompare(b.name || '');
+      if (sortBy === 'village') return (a.village || '').localeCompare(b.village || '');
+      if (sortBy === 'amount') return (b.monthly_fee ?? 0) - (a.monthly_fee ?? 0);
+      return 0;
+    });
+  }, [deactiveCustomers, searchQuery, filterVillage, sortBy]);
 
   const exportToExcel = () => {
     try {
-      const allCustomers = [...activeCustomers, ...deactiveCustomers];
-      const filteredData = getFiltered(allCustomers);
+      const dataToExport = [...filteredActive, ...filteredDeactive];
       
-      if (!filteredData.length) { 
+      if (!dataToExport.length) { 
         addToast('No customers to export', 'error'); 
         return; 
       }
 
       // Prepare data with better headers
-      const data = filteredData.map((c) => ({
+      const data = dataToExport.map((c) => ({
         'Customer Name': c.name || 'N/A',
         'Phone Number': c.phone || 'N/A',
         'Setup Box ID': c.box_id || 'N/A',
@@ -108,7 +123,7 @@ export const CustomerList = () => {
         'Mandal': c.mandal || 'N/A',
         'Monthly Fee (INR)': c.monthly_fee || 0,
         'Active Status': c.status === 'active' ? 'Active' : 'Deactivated',
-        'Registration Date': new Date(c.created_at).toLocaleDateString()
+        'Registration Date': c.created_at ? new Date(c.created_at).toLocaleDateString() : 'N/A'
       }));
 
       // Create worksheet and workbook correctly
@@ -127,7 +142,7 @@ export const CustomerList = () => {
   };
 
   const exportToPDF = async () => {
-    const dataArr = getFiltered([...activeCustomers, ...deactiveCustomers]);
+    const dataArr = [...filteredActive, ...filteredDeactive];
     if (!dataArr.length) { addToast('No customers to export', 'info'); return; }
     const container = document.createElement('div');
     container.style.cssText = 'padding:20px;background:white;width:fit-content;';
@@ -291,8 +306,8 @@ export const CustomerList = () => {
         </button>
       </div>
 
-      <CustomerTable customers={getFiltered(activeCustomers)} title="Active Customers" accent="border-green-500" />
-      <CustomerTable customers={getFiltered(deactiveCustomers)} title="Deactive Customers" accent="border-red-500" />
+      <CustomerTable customers={filteredActive} title="Active Customers" accent="border-green-500" />
+      <CustomerTable customers={filteredDeactive} title="Deactive Customers" accent="border-red-500" />
 
       {showDeleteConfirm && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">

@@ -38,12 +38,13 @@ const ReportsPage = () => {
     const fetchReportData = async () => {
         setLoading(true);
         try {
-            // 1. Fetch Revenue Data (Grouped by Month)
+            // 1. Fetch Revenue Data (Optimized with specific fields)
             const { data: bills } = await supabase
                 .from('bills')
                 .select('amount, month, year, paid_status')
-                .order('year', { ascending: true })
-                .order('month', { ascending: true });
+                .order('year', { ascending: false })
+                .order('month', { ascending: false })
+                .limit(500); // Sanity limit for performance
 
             const revenueMap: Record<string, number> = {};
             let totalRev = 0;
@@ -51,18 +52,19 @@ const ReportsPage = () => {
 
             bills?.forEach(bill => {
                 const label = `${bill.month}/${bill.year}`;
-                revenueMap[label] = (revenueMap[label] || 0) + Number(bill.amount);
-                totalRev += Number(bill.amount);
-                if (bill.paid_status === 'paid') paidRev += Number(bill.amount);
+                const amount = Number(bill.amount);
+                revenueMap[label] = (revenueMap[label] || 0) + amount;
+                totalRev += amount;
+                if (bill.paid_status === 'paid') paidRev += amount;
             });
 
-            const revChartData = Object.entries(revenueMap).slice(-6).map(([name, total]) => ({
+            const revChartData = Object.entries(revenueMap).slice(0, 6).reverse().map(([name, total]) => ({
                 name,
                 total
             }));
             setRevenueData(revChartData);
 
-            // 2. Fetch Customer Growth
+            // 2. Fetch Customer Growth (Lightweight selection)
             const { data: customers } = await supabase
                 .from('customers')
                 .select('created_at, status');
@@ -83,10 +85,12 @@ const ReportsPage = () => {
             }));
             setGrowthData(growChartData);
 
+            const unpaidBills = bills?.filter(b => b.paid_status === 'unpaid').length || 0;
+
             setStats({
                 totalRevenue: totalRev,
                 activeCustomers: activeCount,
-                pendingBills: bills?.filter(b => b.paid_status === 'unpaid').length || 0,
+                pendingBills: unpaidBills,
                 collectionRate: totalRev > 0 ? Math.round((paidRev / totalRev) * 100) : 100
             });
 
@@ -96,8 +100,6 @@ const ReportsPage = () => {
             setLoading(false);
         }
     };
-
-    const COLORS = ['#3b82f6', '#8b5cf6', '#ec4899', '#f59e0b'];
 
     if (loading) {
         return (
