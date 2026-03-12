@@ -97,7 +97,10 @@ const CustomerPortal: React.FC = () => {
             </div>
             <div>
               <h1 className="text-xl font-black dark:text-white uppercase tracking-tight">KKR CUSTOMER PORTAL</h1>
-              <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">ID: {customer.customer_id || 'PENDING'}</p>
+              <div className="flex flex-col">
+                <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest leading-none">ID: {customer.customer_id || 'PENDING'}</p>
+                <p className="text-[10px] font-bold text-blue-600 uppercase tracking-widest mt-1">{user?.email}</p>
+              </div>
             </div>
           </div>
           <button onClick={handleLogout} className="p-3 bg-red-50 dark:bg-red-900/20 text-red-600 rounded-2xl hover:bg-red-100 transition-all">
@@ -169,8 +172,12 @@ const CustomerPortal: React.FC = () => {
           {activeTab === 'dashboard' && (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                <div className="bg-white dark:bg-gray-900 p-8 rounded-[2.5rem] border border-gray-100 dark:border-gray-800">
-                  <h3 className="text-sm font-black uppercase tracking-widest mb-6 border-b pb-4 dark:text-white">Active Plan</h3>
+                  <h3 className="text-sm font-black uppercase tracking-widest mb-6 border-b pb-4 dark:text-white">Account Details</h3>
                   <div className="space-y-4">
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm text-gray-500 font-bold">Registered Email</span>
+                      <span className="text-sm font-black text-blue-600">{user?.email}</span>
+                    </div>
                     <div className="flex justify-between items-center">
                       <span className="text-sm text-gray-500 font-bold">Plan Name</span>
                       <span className="text-sm font-black uppercase">{customer.plan_id ? 'PRO PLAN' : 'Standard Cable'}</span>

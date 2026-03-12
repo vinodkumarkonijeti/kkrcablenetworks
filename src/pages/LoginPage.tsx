@@ -11,6 +11,7 @@ const LoginPage = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
+  const [loginType, setLoginType] = useState<'operator' | 'customer'>('operator');
   const navigate = useNavigate();
 
   const { signIn } = useAuth();
@@ -21,10 +22,33 @@ const LoginPage = () => {
     setLoading(true);
 
     try {
-      const { user, profile } = await signIn(email, password);
+      let loginIdentifier = email;
+
+      // Resolve Email if using Customer ID or Mobile
+      if (loginType === 'customer' && !email.includes('@')) {
+        const { data: resolvedCustomer, error: lookupError } = await supabase
+          .from('customers')
+          .select('email')
+          .or(`customer_id.eq."${email}",phone.eq."${email}"`)
+          .maybeSingle();
+
+        if (lookupError) throw lookupError;
+        if (!resolvedCustomer?.email) {
+          throw new Error('Customer ID or Mobile Number not recognized.');
+        }
+        loginIdentifier = resolvedCustomer.email;
+      }
+
+      const { user, profile } = await signIn(loginIdentifier, password);
       
       if (!user || !profile) {
         throw new Error('Could not retrieve user profile');
+      }
+      
+      // Verification check: if operator login used but profile is customer (or vice versa)
+      if (loginType === 'operator' && profile.role === 'customer') {
+          toast.error('This is for Operators. Use Customer Portal login.');
+          return;
       }
 
       // 1. Role-based Redirection
@@ -86,33 +110,50 @@ const LoginPage = () => {
         className="w-full max-w-md"
       >
         <div className="bg-white/5 backdrop-blur-xl border border-white/10 p-8 rounded-3xl shadow-2xl">
-          <div className="flex flex-col items-center mb-10">
+          <div className="flex flex-col items-center mb-8">
             <motion.div
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
-              className="mb-6 relative"
+              className="mb-4 relative"
             >
               <div className="absolute inset-0 bg-blue-500/20 blur-xl rounded-full" />
-              <Logo size={80} className="relative rounded-2xl shadow-xl" />
+              <Logo size={60} className="relative rounded-2xl shadow-xl" />
             </motion.div>
-            <h1 className="text-3xl font-bold bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent">
+            <h1 className="text-2xl font-bold bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent">
               KKR Network
             </h1>
-            <p className="text-gray-400 mt-2 font-medium">Cable Management System</p>
+          </div>
+
+          {/* Login Type Switcher */}
+          <div className="flex p-1 bg-white/5 rounded-2xl mb-8">
+            <button 
+              onClick={() => setLoginType('operator')}
+              className={`flex-1 py-3 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${loginType === 'operator' ? 'bg-blue-600 text-white shadow-lg shadow-blue-500/20' : 'text-gray-400 hover:text-white'}`}
+            >
+              Operator
+            </button>
+            <button 
+              onClick={() => setLoginType('customer')}
+              className={`flex-1 py-3 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${loginType === 'customer' ? 'bg-blue-600 text-white shadow-lg shadow-blue-500/20' : 'text-gray-400 hover:text-white'}`}
+            >
+              Customer
+            </button>
           </div>
 
           <form onSubmit={handleLogin} className="space-y-6">
             <div className="space-y-2">
-              <label className="text-sm font-medium text-gray-300 ml-1">Email Address</label>
+              <label className="text-sm font-medium text-gray-300 ml-1">
+                {loginType === 'operator' ? 'Operator Email' : 'Email / Customer ID'}
+              </label>
               <div className="relative group">
                 <Mail className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 group-focus-within:text-blue-400 transition-colors" size={20} />
                 <input
-                  type="email"
+                  type={loginType === 'operator' ? 'email' : 'text'}
                   required
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   className="w-full bg-white/5 border border-white/10 rounded-2xl py-3.5 pl-12 pr-4 text-white focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 transition-all placeholder:text-gray-500"
-                  placeholder="name@example.com"
+                  placeholder={loginType === 'operator' ? 'name@example.com' : 'KKR-XXXX / 9876543210'}
                 />
               </div>
             </div>
