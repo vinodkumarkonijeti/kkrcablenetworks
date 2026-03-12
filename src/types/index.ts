@@ -4,8 +4,16 @@ export interface User {
   id: string;
   name: string;
   email: string;
+  phone?: string;
+  avatar_url?: string;
   role: UserRole;
   created_at: string;
+}
+
+export interface UserSettings {
+  monthly_fee: number;
+  tax_rate: number;
+  currency: string;
 }
 
 export interface Customer {

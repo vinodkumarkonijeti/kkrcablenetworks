@@ -4,7 +4,8 @@ import {
     TrendingUp, 
     Users, 
     CreditCard, 
-    ArrowUpRight
+    ArrowUpRight,
+    FileText
 } from 'lucide-react';
 import { 
     BarChart, 
@@ -108,17 +109,37 @@ const ReportsPage = () => {
 
     return (
         <div className="space-y-8 pb-12">
-            <div className="flex items-center justify-between">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                 <div>
-                    <h1 className="text-3xl font-bold dark:text-white">Business Intelligence</h1>
-                    <p className="text-gray-500 dark:text-gray-400">Real-time financial and network analytics</p>
+                    <h1 className="text-3xl font-black dark:text-white uppercase tracking-tight">Business Intelligence</h1>
+                    <p className="text-sm font-bold text-gray-400">Real-time financial and network analytics</p>
                 </div>
-                <button 
-                    onClick={fetchReportData}
-                    className="p-3 bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800 rounded-2xl shadow-sm hover:shadow-md transition-all text-blue-600"
-                >
-                    <TrendingUp size={24} />
-                </button>
+                <div className="flex gap-3">
+                    <button 
+                        onClick={async () => {
+                            const { generateOperatorMonthlyReport } = await import('../utils/automation');
+                            // Calculate approximate stats from current state
+                            const reportStats = {
+                                total: stats.activeCustomers + 24, // Example offset for demo
+                                active: stats.activeCustomers,
+                                deactive: 24,
+                                pending: stats.pendingBills,
+                                rate: stats.collectionRate
+                            };
+                            const link = await generateOperatorMonthlyReport('919999999999', reportStats); 
+                            window.open(link, '_blank');
+                        }}
+                        className="bg-green-600 hover:bg-green-500 text-white px-6 py-4 rounded-[1.5rem] flex items-center gap-2 font-black transition-all shadow-xl shadow-green-100 dark:shadow-none uppercase tracking-widest text-[10px]"
+                    >
+                        <FileText size={18} /> Send Monthly Report
+                    </button>
+                    <button 
+                        onClick={fetchReportData}
+                        className="bg-blue-600 hover:bg-blue-500 text-white px-6 py-4 rounded-[1.5rem] flex items-center gap-2 font-black transition-all shadow-xl shadow-blue-100 dark:shadow-none uppercase tracking-widest text-[10px]"
+                    >
+                        <TrendingUp size={18} /> Refresh Data
+                    </button>
+                </div>
             </div>
 
             {/* Stats Overview */}

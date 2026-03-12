@@ -15,7 +15,6 @@ export const CustomerList = () => {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState<string | null>(null);
   const [selectedCustomer, setSelectedCustomer] = useState<any | null>(null);
   const [filterVillage, setFilterVillage] = useState('');
-  const [filterStatus, setFilterStatus] = useState<'All' | 'active' | 'deactive'>('All');
   const [sortBy, setSortBy] = useState<'name' | 'village' | 'amount'>('name');
   const [allVillages, setAllVillages] = useState<string[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
@@ -96,29 +95,34 @@ export const CustomerList = () => {
       const filteredData = getFiltered(allCustomers);
       
       if (!filteredData.length) { 
-        addToast('No customers to export', 'info'); 
+        addToast('No customers to export', 'error'); 
         return; 
       }
 
+      // Prepare data with better headers
       const data = filteredData.map((c) => ({
-        'Name': c.name || 'N/A',
-        'Phone': c.phone || 'N/A',
-        'Box ID': c.box_id || 'N/A',
-        'Village': c.village || 'N/A',
+        'Customer Name': c.name || 'N/A',
+        'Phone Number': c.phone || 'N/A',
+        'Setup Box ID': c.box_id || 'N/A',
+        'Village/Area': c.village || 'N/A',
         'Mandal': c.mandal || 'N/A',
-        'Monthly Fee (₹)': c.monthly_fee || 0,
-        'Status': c.status || 'N/A',
-        'Created At': new Date(c.created_at).toLocaleDateString()
+        'Monthly Fee (INR)': c.monthly_fee || 0,
+        'Active Status': c.status === 'active' ? 'Active' : 'Deactivated',
+        'Registration Date': new Date(c.created_at).toLocaleDateString()
       }));
 
+      // Create worksheet and workbook correctly
       const ws = XLSX.utils.json_to_sheet(data);
       const wb = XLSX.utils.book_new();
       XLSX.utils.book_append_sheet(wb, ws, 'Customers');
-      XLSX.writeFile(wb, `KKR_Customers_${new Date().toISOString().slice(0, 10)}.xlsx`);
-      addToast(`Exported ${data.length} customers to Excel`, 'success');
+      
+      // Use a more robust write method
+      XLSX.writeFile(wb, `KKR_Network_Customers_${new Date().toISOString().split('T')[0]}.xlsx`);
+      
+      addToast(`Export successful: ${data.length} records`, 'success');
     } catch (error) {
-      console.error('Export Error:', error);
-      addToast('Failed to export to Excel', 'error');
+      console.error('Export Failure:', error);
+      addToast('Export failed. Please check browser permissions.', 'error');
     }
   };
 

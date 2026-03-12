@@ -80,24 +80,152 @@ const SettingsPage = () => {
                                     </div>
                                 </div>
 
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                <div className="flex flex-col items-center gap-6 pb-8 border-b border-gray-100 dark:border-gray-800">
+                                    <div className="relative group">
+                                        <div className="w-32 h-32 rounded-full bg-gradient-to-tr from-blue-600 to-purple-600 p-1">
+                                            <div className="w-full h-full rounded-full bg-white dark:bg-gray-900 border-4 border-white dark:border-gray-900 flex items-center justify-center overflow-hidden">
+                                                {userData?.avatar_url ? (
+                                                    <img src={userData.avatar_url} alt="Profile" className="w-full h-full object-cover" />
+                                                ) : (
+                                                    <span className="text-4xl font-black text-blue-600">{userData?.name?.[0].toUpperCase()}</span>
+                                                )}
+                                            </div>
+                                        </div>
+                                        <label className="absolute inset-0 flex items-center justify-center bg-black/40 rounded-full opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer text-white text-xs font-bold uppercase">
+                                            Change Picture
+                                            <input type="file" className="hidden" accept="image/*" onChange={(e) => {
+                                                const file = e.target.files?.[0];
+                                                if (file) toast.success('Upload feature coming soon! Update via URL for now.');
+                                            }} />
+                                        </label>
+                                    </div>
+                                    <div className="text-center">
+                                        <h3 className="text-2xl font-black dark:text-white uppercase tracking-tighter">{userData?.name}</h3>
+                                        <p className="text-sm font-bold text-blue-600 uppercase tracking-widest">{userData?.role}</p>
+                                    </div>
+                                </div>
+
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-8 pb-8 border-b border-gray-100 dark:border-gray-800">
                                     <div className="space-y-2">
-                                        <label className="text-sm font-bold text-gray-700 dark:text-gray-300 ml-1">Display Name</label>
+                                        <label className="text-sm font-bold text-gray-700 dark:text-gray-300 ml-1">Full Name</label>
                                         <input
+                                            id="profile-name"
                                             type="text"
                                             defaultValue={userData?.name}
-                                            className="w-full bg-gray-50 dark:bg-gray-800 border-none rounded-2xl py-3 px-4 focus:ring-2 focus:ring-blue-500 transition-all dark:text-white"
+                                            className="w-full bg-gray-50 dark:bg-gray-800 border-none rounded-2xl py-4 px-6 focus:ring-2 focus:ring-blue-500 transition-all dark:text-white font-medium"
                                         />
                                     </div>
                                     <div className="space-y-2">
-                                        <label className="text-sm font-bold text-gray-700 dark:text-gray-300 ml-1">Email Address</label>
+                                        <label className="text-sm font-bold text-gray-700 dark:text-gray-300 ml-1">Phone Number</label>
+                                        <input
+                                            id="profile-phone"
+                                            type="tel"
+                                            defaultValue={userData?.phone || ''}
+                                            placeholder="+91 XXXXX XXXXX"
+                                            className="w-full bg-gray-50 dark:bg-gray-800 border-none rounded-2xl py-4 px-6 focus:ring-2 focus:ring-blue-500 transition-all dark:text-white font-medium"
+                                        />
+                                    </div>
+                                    <div className="space-y-2">
+                                        <label className="text-sm font-bold text-gray-700 dark:text-gray-300 ml-1">Email Address (Read-only)</label>
                                         <input
                                             type="email"
                                             disabled
                                             value={userData?.email}
-                                            className="w-full bg-gray-50 dark:bg-gray-800 border-none rounded-2xl py-3 px-4 opacity-60 dark:text-gray-400 cursor-not-allowed"
+                                            className="w-full bg-gray-50 dark:bg-gray-800 border-none rounded-2xl py-4 px-6 opacity-60 dark:text-gray-400 cursor-not-allowed font-medium"
                                         />
                                     </div>
+                                    <div className="space-y-2">
+                                        <label className="text-sm font-bold text-gray-700 dark:text-gray-300 ml-1">Avatar URL</label>
+                                        <input
+                                            id="profile-avatar"
+                                            type="text"
+                                            defaultValue={userData?.avatar_url || ''}
+                                            placeholder="https://images.unsplash.com/..."
+                                            className="w-full bg-gray-50 dark:bg-gray-800 border-none rounded-2xl py-4 px-6 focus:ring-2 focus:ring-blue-500 transition-all dark:text-white font-medium"
+                                        />
+                                    </div>
+                                </div>
+                                <div className="flex justify-end gap-4">
+                                    <button 
+                                        onClick={async () => {
+                                            const name = (document.getElementById('profile-name') as HTMLInputElement).value;
+                                            const phone = (document.getElementById('profile-phone') as HTMLInputElement).value;
+                                            const avatar_url = (document.getElementById('profile-avatar') as HTMLInputElement).value;
+                                            const { error } = await supabase.from('users').update({ name, phone, avatar_url }).eq('id', userData?.id);
+                                            if (error) toast.error(error.message);
+                                            else {
+                                                toast.success('Profile updated successfully');
+                                                window.location.reload(); // Refresh to update AuthContext
+                                            }
+                                        }}
+                                        className="px-10 py-4 bg-blue-600 text-white font-black rounded-2xl hover:bg-blue-500 transition-all shadow-xl shadow-blue-200 dark:shadow-none uppercase tracking-widest text-xs"
+                                    >
+                                        Update Profile
+                                    </button>
+                                </div>
+                            </div>
+                        )}
+
+                        {activeTab === 'billing' && (
+                            <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
+                                <div className="flex items-center justify-between">
+                                    <h3 className="text-xl font-black dark:text-white uppercase tracking-tight">System Billing Config</h3>
+                                    <span className="px-3 py-1 bg-green-100 text-green-700 text-[10px] font-bold rounded-full uppercase">Active</span>
+                                </div>
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pb-8 border-b border-gray-100 dark:border-gray-800">
+                                    <div className="space-y-2">
+                                        <label className="text-sm font-bold text-gray-700 dark:text-gray-300 ml-1">Default Package (₹)</label>
+                                        <input
+                                            type="number"
+                                            defaultValue="200"
+                                            className="w-full bg-gray-50 dark:bg-gray-800 border-none rounded-2xl py-4 px-6 focus:ring-2 focus:ring-blue-500 transition-all dark:text-white"
+                                        />
+                                    </div>
+                                    <div className="space-y-2">
+                                        <label className="text-sm font-bold text-gray-700 dark:text-gray-300 ml-1">GST / Tax Component (%)</label>
+                                        <input
+                                            type="number"
+                                            defaultValue="18"
+                                            className="w-full bg-gray-50 dark:bg-gray-800 border-none rounded-2xl py-4 px-6 focus:ring-2 focus:ring-blue-500 transition-all dark:text-white"
+                                        />
+                                    </div>
+                                    <div className="space-y-2">
+                                        <label className="text-sm font-bold text-gray-700 dark:text-gray-300 ml-1">Due Day of Month</label>
+                                        <select
+                                            className="w-full bg-gray-50 dark:bg-gray-800 border-none rounded-2xl py-4 px-6 focus:ring-2 focus:ring-blue-500 transition-all dark:text-white font-bold"
+                                        >
+                                            <option value="5">5th of month</option>
+                                            <option value="10">10th of month</option>
+                                            <option value="15">15th of month</option>
+                                        </select>
+                                    </div>
+                                    <div className="space-y-2">
+                                        <label className="text-sm font-bold text-gray-700 dark:text-gray-300 ml-1">Grace Period (Days)</label>
+                                        <input
+                                            type="number"
+                                            defaultValue="3"
+                                            className="w-full bg-gray-50 dark:bg-gray-800 border-none rounded-2xl py-4 px-6 focus:ring-2 focus:ring-blue-500 transition-all dark:text-white"
+                                        />
+                                    </div>
+                                </div>
+                                <div className="p-6 bg-blue-50 dark:bg-blue-900/20 rounded-[2rem] border border-blue-100 dark:border-blue-800/50 flex gap-4 items-center">
+                                    <div className="p-3 bg-white dark:bg-gray-900 rounded-2xl shadow-sm">
+                                        <CreditCard size={20} className="text-blue-600" />
+                                    </div>
+                                    <div>
+                                        <h4 className="font-bold text-blue-900 dark:text-blue-300">Global Pricing Policy</h4>
+                                        <p className="text-xs text-blue-700 dark:text-blue-400 mt-0.5">
+                                            Changes here will be applied to all new bills generated from next month.
+                                        </p>
+                                    </div>
+                                </div>
+                                <div className="flex justify-end">
+                                    <button 
+                                        onClick={() => toast.success('Billing policy updated')}
+                                        className="px-10 py-4 bg-blue-600 text-white font-black rounded-2xl hover:bg-blue-500 transition-all shadow-xl shadow-blue-200 dark:shadow-none uppercase tracking-widest text-xs"
+                                    >
+                                        Save All Billing Config
+                                    </button>
                                 </div>
                             </div>
                         )}

@@ -41,7 +41,19 @@ export const sendAutomationMessage = async ({ phone, customerName, type, details
     const encodedMessage = encodeURIComponent(message);
     const whatsappLink = `https://wa.me/${formattedPhone}?text=${encodedMessage}`;
     
-    // For automation, we open the link in a new tab if it's a one-off
-    // In a real cloud environment, a server would send this via Twilio/Interakt
     return whatsappLink;
+};
+
+export const generateOperatorMonthlyReport = async (operatorPhone: string, stats: any) => {
+    const monthNames = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+    const d = new Date();
+    const month = monthNames[d.getMonth()];
+    const year = d.getFullYear();
+
+    const message = `*KKR CABLE - MONTHLY OPERATOR REPORT* 📊\n\n*Period:* ${month} ${year}\n*Generated On:* ${d.toLocaleDateString()}\n\n*Summary:*\n- Total Subscribers: ${stats.total}\n- Active Users: ${stats.active}\n- Deactivated: ${stats.deactive}\n- Pending Payments: ₹${stats.pending}\n- Collection Rate: ${stats.rate}%\n\n*Action Required:* Please review the attached Excel/PDF for detailed village-wise pending amounts.\n\n_Powered by KKR Automation_`;
+
+    const cleanPhone = operatorPhone.replace(/\D/g, '');
+    const formattedPhone = cleanPhone.startsWith('91') ? cleanPhone : `91${cleanPhone}`;
+    
+    return `https://wa.me/${formattedPhone}?text=${encodeURIComponent(message)}`;
 };
