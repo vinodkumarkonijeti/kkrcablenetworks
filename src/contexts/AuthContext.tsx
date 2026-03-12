@@ -80,7 +80,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             id: authUser.id,
             name: authUser.user_metadata?.full_name || authUser.email?.split('@')[0] || 'User',
             email: authUser.email!,
-            role: (authUser.user_metadata?.role || 'operator') as UserRole,
+            role: (authUser.user_metadata?.role || 'customer') as UserRole,
           };
           const { data: newProfile } = await supabase
             .from('users')

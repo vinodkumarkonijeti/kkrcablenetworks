@@ -63,7 +63,7 @@ const LoginPage = () => {
         const { data: customer, error: custError } = await supabase
           .from('customers')
           .select('account_status')
-          .eq('email', email)
+          .eq('email', loginIdentifier) // Use resolved email
           .maybeSingle();
 
         if (custError) throw custError;

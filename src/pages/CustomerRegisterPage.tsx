@@ -54,7 +54,7 @@ export const CustomerRegisterPage = () => {
         options: {
           data: {
             full_name: formData.name,
-            role: 'customer',
+            role: 'customer', // Explicitly customer
           }
         }
       });
@@ -80,15 +80,22 @@ export const CustomerRegisterPage = () => {
           .single();
 
         if (existingCustomer) {
-          // Verify name matches
+          // Verify name matches or is empty (if created as placeholder)
           const existingName = existingCustomer.name?.toLowerCase() || '';
-          if (!existingName.includes(formData.name.toLowerCase().split(' ')[0])) {
-            setError('Box ID is linked to a different customer. Please contact KKR Support.');
+          const inputName = formData.name.toLowerCase();
+          
+          if (existingName && !existingName.includes(inputName.split(' ')[0]) && !inputName.includes(existingName.split(' ')[0])) {
+            setError('Box ID is linked to a different name. Please contact KKR Support.');
             setLoading(false);
             return;
           }
+
+          // Link the email to the existing customer record
+          await supabase.from('customers').update({
+            email: formData.email,
+          }).eq('box_id', formData.boxId);
         } else {
-          // Create a new customer record in public.customers
+          // If Box ID doesn't exist, we create a new one as requested, but ensure it's a customer
           await supabase.from('customers').insert({
             name: formData.name,
             phone: formData.phoneNumber,
@@ -96,8 +103,10 @@ export const CustomerRegisterPage = () => {
             village: formData.village,
             mandal: formData.mandal,
             status: 'active',
-            monthly_fee: 200, // Default fee
+            monthly_fee: 200, 
             created_by: userId,
+            email: formData.email,
+            customer_id: formData.boxId // Match box_id to customer_id for simplicity
           });
         }
       }
