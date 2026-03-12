@@ -1,4 +1,4 @@
-export type UserRole = 'admin' | 'operator';
+export type UserRole = 'admin' | 'operator' | 'customer';
 
 export interface User {
   id: string;
@@ -18,16 +18,34 @@ export interface UserSettings {
 
 export interface Customer {
   id: string;
+  customer_id?: string;
   name: string;
   phone: string;
+  email?: string;
   box_id: string;
   village: string;
   mandal: string;
   address?: string;
+  area?: string;
+  connection_type?: 'Cable' | 'Internet' | 'Combo';
+  plan_id?: string;
   status: 'active' | 'deactive';
+  account_status?: 'Active' | 'Suspended' | 'Disconnected';
   monthly_fee: number;
+  outstanding_amount?: number;
+  installation_date?: string;
   id_proof_url?: string;
   created_by: string;
+  created_at: string;
+}
+
+export interface Plan {
+  id: string;
+  plan_name: string;
+  plan_type: 'Cable' | 'Internet' | 'Combo';
+  price: number;
+  channels?: string;
+  internet_speed?: string;
   created_at: string;
 }
 
@@ -72,4 +90,34 @@ export interface ActivityLog {
   target_id?: string;
   details?: any;
   timestamp: string;
+}
+
+export interface Complaint {
+  complaint_id: string;
+  customer_id: string;
+  issue_type: string;
+  description?: string;
+  status: 'Open' | 'In Progress' | 'Resolved';
+  created_at: string;
+  customer?: Customer;
+}
+
+export interface Technician {
+  technician_id: string;
+  name: string;
+  phone: string;
+  assigned_area?: string;
+  created_at: string;
+}
+
+export interface ServiceRequest {
+  request_id: string;
+  customer_id: string;
+  technician_id?: string;
+  request_type: string;
+  status: 'Pending' | 'Assigned' | 'In Progress' | 'Completed';
+  scheduled_date?: string;
+  created_at: string;
+  customer?: Customer;
+  technician?: Technician;
 }

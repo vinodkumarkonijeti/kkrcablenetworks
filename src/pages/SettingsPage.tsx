@@ -176,6 +176,7 @@ const SettingsPage = () => {
                                     <div className="space-y-2">
                                         <label className="text-sm font-bold text-gray-700 dark:text-gray-300 ml-1">Default Package (₹)</label>
                                         <input
+                                            id="billing-fee"
                                             type="number"
                                             defaultValue="200"
                                             className="w-full bg-gray-50 dark:bg-gray-800 border-none rounded-2xl py-4 px-6 focus:ring-2 focus:ring-blue-500 transition-all dark:text-white"
@@ -184,6 +185,7 @@ const SettingsPage = () => {
                                     <div className="space-y-2">
                                         <label className="text-sm font-bold text-gray-700 dark:text-gray-300 ml-1">GST / Tax Component (%)</label>
                                         <input
+                                            id="billing-gst"
                                             type="number"
                                             defaultValue="18"
                                             className="w-full bg-gray-50 dark:bg-gray-800 border-none rounded-2xl py-4 px-6 focus:ring-2 focus:ring-blue-500 transition-all dark:text-white"
@@ -192,16 +194,20 @@ const SettingsPage = () => {
                                     <div className="space-y-2">
                                         <label className="text-sm font-bold text-gray-700 dark:text-gray-300 ml-1">Due Day of Month</label>
                                         <select
+                                            id="billing-day"
                                             className="w-full bg-gray-50 dark:bg-gray-800 border-none rounded-2xl py-4 px-6 focus:ring-2 focus:ring-blue-500 transition-all dark:text-white font-bold"
                                         >
                                             <option value="5">5th of month</option>
                                             <option value="10">10th of month</option>
                                             <option value="15">15th of month</option>
+                                            <option value="20">20th of month</option>
+                                            <option value="25">25th of month</option>
                                         </select>
                                     </div>
                                     <div className="space-y-2">
                                         <label className="text-sm font-bold text-gray-700 dark:text-gray-300 ml-1">Grace Period (Days)</label>
                                         <input
+                                            id="billing-grace"
                                             type="number"
                                             defaultValue="3"
                                             className="w-full bg-gray-50 dark:bg-gray-800 border-none rounded-2xl py-4 px-6 focus:ring-2 focus:ring-blue-500 transition-all dark:text-white"
@@ -221,7 +227,21 @@ const SettingsPage = () => {
                                 </div>
                                 <div className="flex justify-end">
                                     <button 
-                                        onClick={() => toast.success('Billing policy updated')}
+                                        onClick={async () => {
+                                            const fee = (document.getElementById('billing-fee') as HTMLInputElement).value;
+                                            const gst = (document.getElementById('billing-gst') as HTMLInputElement).value;
+                                            const day = (document.getElementById('billing-day') as HTMLSelectElement).value;
+                                            const grace = (document.getElementById('billing-grace') as HTMLInputElement).value;
+
+                                            const { error } = await supabase.from('settings').upsert({
+                                                key: 'billing_config',
+                                                value: { default_fee: fee, gst_rate: gst, due_day: day, grace_period: grace },
+                                                updated_by: userData?.id
+                                            });
+
+                                            if (error) toast.error(error.message);
+                                            else toast.success('Billing Global Config saved successfully');
+                                        }}
                                         className="px-10 py-4 bg-blue-600 text-white font-black rounded-2xl hover:bg-blue-500 transition-all shadow-xl shadow-blue-200 dark:shadow-none uppercase tracking-widest text-xs"
                                     >
                                         Save All Billing Config

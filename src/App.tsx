@@ -14,6 +14,8 @@ import { RegisterPage } from './pages/RegisterPage';
 import MapsPage from './pages/MapsPage';
 import ReportsPage from './pages/ReportsPage';
 import CustomerRegisterPage from './pages/CustomerRegisterPage';
+import CustomerPortal from './pages/CustomerPortal';
+import DisconnectedPage from './pages/DisconnectedPage';
 
 const ProtectedLayout = () => {
   return (
@@ -29,6 +31,12 @@ function AppRoutes() {
       <Route path="/login" element={<LoginPage />} />
       <Route path="/register" element={<RegisterPage />} />
       <Route path="/customer-register" element={<CustomerRegisterPage />} />
+      <Route path="/disconnected" element={<DisconnectedPage />} />
+
+      {/* Customer Portal Route */}
+      <Route element={<ProtectedRoute allowedRoles={['customer']} />}>
+        <Route path="/portal" element={<CustomerPortal />} />
+      </Route>
 
       {/* Protected Admin/Operator Routes */}
       <Route element={<ProtectedRoute allowedRoles={['admin', 'operator']} />}>

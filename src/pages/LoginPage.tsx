@@ -5,6 +5,7 @@ import { Mail, Lock, Loader2, ArrowRight } from 'lucide-react';
 import toast from 'react-hot-toast';
 import Logo from '../components/Logo';
 import { useAuth } from '../contexts/AuthContext';
+import { supabase } from '../lib/supabase';
 
 const LoginPage = () => {
   const [email, setEmail] = useState('');
@@ -16,13 +17,57 @@ const LoginPage = () => {
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!email || !password) return;
     setLoading(true);
 
     try {
-      await signIn(email, password);
-      navigate('/dashboard');
+      const { user, profile } = await signIn(email, password);
+      
+      if (!user || !profile) {
+        throw new Error('Could not retrieve user profile');
+      }
+
+      // 1. Role-based Redirection
+      if (profile.role === 'admin' || profile.role === 'operator') {
+        toast.success('Admin access granted');
+        navigate('/dashboard');
+        return;
+      }
+
+      // 2. Customer Redirection (Smart Logic)
+      if (profile.role === 'customer') {
+        const { data: customer, error: custError } = await supabase
+          .from('customers')
+          .select('account_status')
+          .eq('email', email)
+          .maybeSingle();
+
+        if (custError) throw custError;
+
+        if (!customer) {
+          toast.error('Customer profile not found. Please contact support.');
+          return;
+        }
+
+        switch (customer.account_status) {
+          case 'Active':
+            toast.success('Welcome to KKR Portal');
+            navigate('/portal');
+            break;
+          case 'Suspended':
+            toast.error('Account Suspended: Overdue Payment Found', { duration: 6000 });
+            navigate('/portal'); // Still let them enter to pay
+            break;
+          case 'Disconnected':
+            navigate('/disconnected');
+            break;
+          default:
+            navigate('/portal');
+        }
+      }
     } catch (error: any) {
       console.error('Login error:', error);
+      toast.error(error.message || 'Login failed. Please check your credentials.');
     } finally {
       setLoading(false);
     }

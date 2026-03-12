@@ -14,7 +14,7 @@ interface AuthContextType {
   isOperator: boolean;
   signOut: () => Promise<void>;
   register: (email: string, password: string, metadata: any) => Promise<void>;
-  signIn: (email: string, password: string) => Promise<void>;
+  signIn: (email: string, password: string) => Promise<{ user: SupabaseUser; profile: User | null }>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -134,9 +134,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const signIn = async (email: string, password: string) => {
     try {
-      const { error } = await supabase.auth.signInWithPassword({ email, password });
+      const { data, error } = await supabase.auth.signInWithPassword({ email, password });
       if (error) throw error;
+      
+      // Fetch profile immediately for redirection
+      const { data: profile } = await supabase
+        .from('users')
+        .select('*')
+        .eq('id', data.user.id)
+        .single();
+
       toast.success('Welcome back!');
+      return { user: data.user, profile };
     } catch (error: any) {
       toast.error(error.message || 'Failed to login');
       throw error;
