@@ -3,9 +3,10 @@ import { createClient } from '@supabase/supabase-js';
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
-if (!supabaseUrl || !supabaseAnonKey) {
-    console.error('CRITICAL: Supabase URL or Anon Key is missing!');
+export const isSupabaseConfigured = Boolean(supabaseUrl && supabaseAnonKey && !supabaseUrl.includes('placeholder'));
+
+if (!isSupabaseConfigured) {
+    console.error('CRITICAL: Supabase URL or Anon Key is missing! App will fail to fetch data.');
 }
 
-// Fallback to empty strings to prevent constructor crash, but app will still show errors in UI
 export const supabase = createClient(supabaseUrl || 'https://placeholder.supabase.co', supabaseAnonKey || 'placeholder');

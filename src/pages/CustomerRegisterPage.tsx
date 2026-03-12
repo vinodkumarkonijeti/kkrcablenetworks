@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { Mail, Lock, User, Phone, MapPin, Wifi, CheckCircle, AlertCircle } from 'lucide-react';
-import { supabase } from '../lib/supabase';
+import { supabase, isSupabaseConfigured } from '../lib/supabase';
 import Logo from '../components/Logo';
 
 export const CustomerRegisterPage = () => {
@@ -28,6 +28,11 @@ export const CustomerRegisterPage = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
+
+    if (!isSupabaseConfigured) {
+      setError('System error: The database connection is not configured correctly. Please contact KKR Support.');
+      return;
+    }
 
     if (formData.password !== formData.confirmPassword) {
       setError('Passwords do not match.');
@@ -77,7 +82,6 @@ export const CustomerRegisterPage = () => {
         if (existingCustomer) {
           // Verify name matches
           const existingName = existingCustomer.name?.toLowerCase() || '';
-          const registerName = `${formData.firstName} ${formData.lastName}`.toLowerCase();
           if (!existingName.includes(formData.firstName.toLowerCase())) {
             setError('Box ID is linked to a different customer. Please contact KKR Support.');
             setLoading(false);
@@ -102,6 +106,7 @@ export const CustomerRegisterPage = () => {
       setTimeout(() => navigate('/login', { state: { email: formData.email } }), 2500);
 
     } catch (err: any) {
+      console.error('Registration error:', err);
       if (err.message?.includes('already registered') || err.message?.includes('already exists')) {
         setError('Email already registered. Please login instead.');
       } else {
