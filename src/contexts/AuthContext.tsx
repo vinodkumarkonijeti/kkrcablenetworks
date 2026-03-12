@@ -116,8 +116,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         password,
         options: {
           data: {
-            full_name: `${metadata.firstName} ${metadata.lastName}`,
-            role: (metadata.occupation || 'operator').toLowerCase() as UserRole,
+            full_name: metadata.name || `${metadata.firstName} ${metadata.lastName}`,
+            role: (metadata.role || 'operator').toLowerCase() as UserRole,
           }
         }
       });

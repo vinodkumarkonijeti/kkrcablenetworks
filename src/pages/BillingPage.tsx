@@ -13,10 +13,10 @@ import { Bill } from '../types';
 import toast from 'react-hot-toast';
 import GenerateBillsModal from '../components/GenerateBillsModal';
 import { generateInvoicePDF } from '../utils/pdfGenerator';
+import { sendAutomationMessage } from '../utils/automation';
 
 const BillingPage = () => {
     const [bills, setBills] = useState<Bill[]>([]);
-    const [loading, setLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
     const [isModalOpen, setIsModalOpen] = useState(false);
 
@@ -26,7 +26,6 @@ const BillingPage = () => {
 
     const fetchBills = async () => {
         try {
-            setLoading(true);
             const { data, error } = await supabase
                 .from('bills')
                 .select('*, customer:customers(*)')
@@ -37,7 +36,7 @@ const BillingPage = () => {
         } catch (error: any) {
             toast.error(error.message);
         } finally {
-            setLoading(false);
+            // Loading removed
         }
     };
 
@@ -186,8 +185,19 @@ const BillingPage = () => {
                                                 PDF
                                             </button>
                                             <button
-                                                onClick={() => toast.success('WhatsApp reminder triggered')}
-                                                className="flex items-center gap-2 px-3 py-1.5 bg-amber-50 hover:bg-amber-100 dark:bg-amber-900/20 dark:hover:bg-amber-900/40 text-amber-600 dark:text-amber-400 rounded-xl text-xs font-bold transition-all"
+                                                onClick={async () => {
+                                                    const link = await sendAutomationMessage({
+                                                        phone: bill.customer?.phone || '',
+                                                        customerName: bill.customer?.name || 'Customer',
+                                                        type: 'bill_reminder',
+                                                        details: {
+                                                            period: `${new Date(0, bill.month - 1).toLocaleString('default', { month: 'long' })} ${bill.year}`,
+                                                            amount: bill.amount
+                                                        }
+                                                    });
+                                                    window.open(link, '_blank');
+                                                }}
+                                                className="flex items-center gap-2 px-3 py-1.5 bg-emerald-50 hover:bg-emerald-100 dark:bg-emerald-900/20 dark:hover:bg-emerald-900/40 text-emerald-600 dark:text-emerald-400 rounded-xl text-xs font-bold transition-all"
                                             >
                                                 <Send size={14} />
                                                 WhatsApp

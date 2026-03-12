@@ -7,11 +7,11 @@ import Logo from '../components/Logo';
 
 export const CustomerRegisterPage = () => {
   const [formData, setFormData] = useState({
-    firstName: '',
-    lastName: '',
+    name: '',
     email: '',
     phoneNumber: '',
     village: '',
+    mandal: '',
     boxId: '',
     password: '',
     confirmPassword: ''
@@ -53,8 +53,8 @@ export const CustomerRegisterPage = () => {
         password: formData.password,
         options: {
           data: {
-            full_name: `${formData.firstName} ${formData.lastName}`,
-            role: 'operator', // customers get operator role to use the portal
+            full_name: formData.name,
+            role: 'customer',
           }
         }
       });
@@ -67,9 +67,9 @@ export const CustomerRegisterPage = () => {
         // 2. Create user profile in public.users
         await supabase.from('users').upsert({
           id: userId,
-          name: `${formData.firstName} ${formData.lastName}`,
+          name: formData.name,
           email: formData.email,
-          role: 'operator',
+          role: 'customer',
         });
 
         // 3. Check if a customer with this boxId exists - link or create
@@ -82,7 +82,7 @@ export const CustomerRegisterPage = () => {
         if (existingCustomer) {
           // Verify name matches
           const existingName = existingCustomer.name?.toLowerCase() || '';
-          if (!existingName.includes(formData.firstName.toLowerCase())) {
+          if (!existingName.includes(formData.name.toLowerCase().split(' ')[0])) {
             setError('Box ID is linked to a different customer. Please contact KKR Support.');
             setLoading(false);
             return;
@@ -90,13 +90,13 @@ export const CustomerRegisterPage = () => {
         } else {
           // Create a new customer record in public.customers
           await supabase.from('customers').insert({
-            name: `${formData.firstName} ${formData.lastName}`,
+            name: formData.name,
             phone: formData.phoneNumber,
             box_id: formData.boxId,
             village: formData.village,
-            mandal: '',
+            mandal: formData.mandal,
             status: 'active',
-            monthly_fee: 0,
+            monthly_fee: 200, // Default fee
             created_by: userId,
           });
         }
@@ -167,8 +167,7 @@ export const CustomerRegisterPage = () => {
             <h3 className="text-xs font-semibold uppercase tracking-widest text-gray-400 mb-3">Personal Information</h3>
             <div className="grid md:grid-cols-2 gap-4">
               {[
-                { label: 'First Name', name: 'firstName', icon: User, placeholder: 'First name' },
-                { label: 'Last Name', name: 'lastName', icon: User, placeholder: 'Last name' },
+                { label: 'Full Name', name: 'name', icon: User, placeholder: 'Enter your full name' },
                 { label: 'Email Address', name: 'email', icon: Mail, placeholder: 'your@email.com', type: 'email' },
                 { label: 'Phone Number', name: 'phoneNumber', icon: Phone, placeholder: '+91 XXXXXXXXXX', type: 'tel' },
               ].map(({ label, name, icon: Icon, placeholder, type = 'text' }) => (
@@ -211,6 +210,21 @@ export const CustomerRegisterPage = () => {
                 </div>
               </div>
               <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Mandal</label>
+                <div className="relative">
+                  <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4" />
+                  <input
+                    type="text"
+                    name="mandal"
+                    value={formData.mandal}
+                    onChange={handleChange}
+                    required
+                    placeholder="Your mandal"
+                    className="w-full pl-9 pr-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-green-500 focus:border-transparent outline-none transition text-sm bg-gray-50 focus:bg-white"
+                  />
+                </div>
+              </div>
+              <div className="md:col-span-2">
                 <label className="block text-sm font-medium text-gray-700 mb-1">Box ID / Connection ID</label>
                 <div className="relative">
                   <Wifi className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4" />

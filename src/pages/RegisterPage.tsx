@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { UserPlus, Mail, Lock, User, Phone, Briefcase, AlertCircle } from 'lucide-react';
+import { UserPlus, Mail, Lock, User, Phone } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { isSupabaseConfigured } from '../lib/supabase';
 import Logo from '../components/Logo';
@@ -12,7 +12,6 @@ export const RegisterPage = () => {
     lastName: '',
     email: '',
     phoneNumber: '',
-    occupation: 'Operator',
     password: '',
     confirmPassword: ''
   });
@@ -47,7 +46,7 @@ export const RegisterPage = () => {
         lastName: formData.lastName,
         email: formData.email,
         phoneNumber: formData.phoneNumber,
-        occupation: formData.occupation
+        role: 'operator'
       });
       setShowSuccess(true);
       setTimeout(() => {
@@ -179,24 +178,6 @@ export const RegisterPage = () => {
                 className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition"
                 placeholder="+91 XXXXXXXXXX"
               />
-            </div>
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Occupation
-            </label>
-            <div className="relative">
-              <Briefcase className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
-              <select
-                name="occupation"
-                value={formData.occupation}
-                onChange={handleChange}
-                required
-                className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition appearance-none"
-              >
-                <option value="Operator">Operator</option>
-              </select>
             </div>
           </div>
 
