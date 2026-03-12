@@ -1,65 +1,61 @@
-import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
-import { collection, addDoc, serverTimestamp, getDocs, query, orderBy, deleteDoc, doc } from 'firebase/firestore';
-import { db, storage } from '../config/firebase';
-const MAX_FILE_SIZE = 50 * 1024 * 1024; // 50MB max file size
+import { supabase } from '../lib/supabase';
 
-export const uploadCustomerDocument = async (customerId: string, file: File, uploadedBy: { id?: string; name?: string } = {}) => {
-  try {
-    // Validate file size
-    if (file.size > MAX_FILE_SIZE) {
-      throw new Error(`File size exceeds 50MB limit. Actual size: ${(file.size / 1024 / 1024).toFixed(2)}MB`);
-    }
+const MAX_FILE_SIZE = 50 * 1024 * 1024; // 50MB
 
-    const timestamp = Date.now();
-    const safeName = file.name.replace(/[^a-z0-9.\-_]/gi, '_');
-    const path = `customers/${customerId}/${timestamp}_${safeName}`;
-    const storageRef = ref(storage, path);
+export const uploadCustomerDocument = async (
+  customerId: string,
+  file: File,
+  uploadedBy: { id?: string; name?: string } = {}
+) => {
+  if (file.size > MAX_FILE_SIZE) {
+    throw new Error(`File size exceeds 50MB. Actual: ${(file.size / 1024 / 1024).toFixed(2)}MB`);
+  }
 
-    // Uploading file
+  const timestamp = Date.now();
+  const safeName = file.name.replace(/[^a-z0-9.\-_]/gi, '_');
+  const path = `customers/${customerId}/${timestamp}_${safeName}`;
 
-    await uploadBytes(storageRef, file);
-    // File uploaded successfully
+  // Upload to Supabase Storage
+  const { error: uploadError } = await supabase.storage
+    .from('customer-documents')
+    .upload(path, file, { cacheControl: '3600', upsert: false });
 
-    const url = await getDownloadURL(storageRef);
-    // Download URL obtained
+  if (uploadError) throw uploadError;
 
-    // Save metadata in Firestore under customers/{customerId}/documents
-    const docRef = await addDoc(collection(db, 'customers', customerId, 'documents'), {
+  // Get public URL
+  const { data: { publicUrl } } = supabase.storage
+    .from('customer-documents')
+    .getPublicUrl(path);
+
+  // Save metadata in DB
+  const { data, error: dbError } = await supabase
+    .from('customer_documents')
+    .insert({
+      customer_id: customerId,
       name: file.name,
       path,
-      url,
+      url: publicUrl,
       size: file.size,
-      uploadedBy: uploadedBy || null,
-      createdAt: serverTimestamp()
-    });
+      uploaded_by: uploadedBy?.id || null,
+    })
+    .select('id')
+    .single();
 
-    // Document metadata saved
-    return { id: docRef.id, name: file.name, path, url };
-  } catch (error: any) {
-    console.error('Upload failed:', error);
-    if (error instanceof Error) {
-      throw error;
-    }
-    throw new Error(`Upload failed: ${error?.message || 'Unknown error'}`);
-  }
+  if (dbError) throw dbError;
+
+  return { id: data.id, name: file.name, path, url: publicUrl };
 };
 
 export const listCustomerDocuments = async (customerId: string) => {
-  const docsQuery = query(collection(db, 'customers', customerId, 'documents'), orderBy('createdAt', 'desc'));
-  const snap = await getDocs(docsQuery);
-  return snap.docs.map((d) => ({ id: d.id, ...(d.data() as any) }));
+  const { data } = await supabase
+    .from('customer_documents')
+    .select('*')
+    .eq('customer_id', customerId)
+    .order('created_at', { ascending: false });
+  return data ?? [];
 };
 
-export const deleteCustomerDocument = async (customerId: string, docId: string, path: string) => {
-  // Delete from storage first
-  try {
-    const storageRef = ref(storage, path);
-    await deleteObject(storageRef);
-  } catch (err) {
-    // ignore storage deletion errors - still attempt to remove metadata
-    console.warn('Storage delete failed for', path, err);
-  }
-
-  // Delete metadata
-  await deleteDoc(doc(db, 'customers', customerId, 'documents', docId));
+export const deleteCustomerDocument = async (_customerId: string, docId: string, path: string) => {
+  await supabase.storage.from('customer-documents').remove([path]);
+  await supabase.from('customer_documents').delete().eq('id', docId);
 };

@@ -1,65 +1,57 @@
 import { useState } from 'react';
-import { collection, query, where, getDocs, doc, updateDoc, serverTimestamp } from 'firebase/firestore';
-import { db } from '../../config/firebase';
 import { motion } from 'framer-motion';
 import { Edit, Search, Calendar, IndianRupee } from 'lucide-react';
-import UploadDocument from '../../components/UploadDocument';
 import { format } from 'date-fns';
-import type { Customer } from '../../types';
+import { supabase } from '../../lib/supabase';
+import toast from 'react-hot-toast';
 
 export const EditCustomer = () => {
   const [searchBoxId, setSearchBoxId] = useState('');
-  const [customer, setCustomer] = useState<Customer | null>(null);
+  const [customer, setCustomer] = useState<any | null>(null);
   const [loading, setLoading] = useState(false);
-  const [message, setMessage] = useState('');
   const [formData, setFormData] = useState({
-    firstName: '',
-    lastName: '',
-    phoneNumber: '',
+    name: '',
+    phone: '',
     village: '',
-    boxId: '',
-    billAmount: '',
-    endDate: ''
+    box_id: '',
+    monthly_fee: '',
+    endDate: '',
+    status: 'active',
   });
 
   const handleSearch = async () => {
+    if (!searchBoxId.trim()) return;
+    setLoading(true);
     try {
-      setLoading(true);
-      setMessage('');
-      const customersRef = collection(db, 'customers');
-      const q = query(customersRef, where('boxId', '==', searchBoxId));
-      const snapshot = await getDocs(q);
+      const { data, error } = await supabase
+        .from('customers')
+        .select('*')
+        .eq('box_id', searchBoxId.trim())
+        .single();
 
-      if (!snapshot.empty) {
-        const customerData = { id: snapshot.docs[0].id, ...snapshot.docs[0].data() } as Customer;
-        setCustomer(customerData);
-        setFormData({
-          firstName: customerData.firstName,
-          lastName: customerData.lastName,
-          phoneNumber: customerData.phoneNumber,
-          village: customerData.village,
-          boxId: customerData.boxId,
-          billAmount: customerData.billAmount.toString(),
-          endDate: customerData.endDate ? format(new Date(customerData.endDate as any), 'yyyy-MM-dd') : ''
-        });
-      } else {
-        setMessage('Customer not found with this Box ID');
+      if (error || !data) {
+        toast.error('Customer not found with this Box ID');
         setCustomer(null);
+      } else {
+        setCustomer(data);
+        setFormData({
+          name: data.name || '',
+          phone: data.phone || '',
+          village: data.village || '',
+          box_id: data.box_id || '',
+          monthly_fee: String(data.monthly_fee ?? ''),
+          endDate: '',
+          status: data.status || 'active',
+        });
       }
-    } catch (error) {
-      setMessage('Error searching customer');
+    } catch {
+      toast.error('Error searching for customer');
     } finally {
       setLoading(false);
     }
   };
 
-  const handleSearchKeyPress = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === 'Enter' && searchBoxId.trim()) {
-      handleSearch();
-    }
-  };
-
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
   };
 
@@ -67,78 +59,58 @@ export const EditCustomer = () => {
     e.preventDefault();
     if (!customer) return;
 
+    setLoading(true);
     try {
-      setLoading(true);
-      // If bill amount is 0, automatically mark as paid
-      const billAmount = Number(formData.billAmount);
-      const billStatus = billAmount === 0 ? 'Paid' : customer.billStatus;
-      
-      const customerRef = doc(db, 'customers', customer.id);
-      await updateDoc(customerRef, {
-        firstName: formData.firstName,
-        lastName: formData.lastName,
-        phoneNumber: formData.phoneNumber,
-        village: formData.village,
-        boxId: formData.boxId,
-        billAmount,
-        billStatus,
-        endDate: formData.endDate ? new Date(formData.endDate) : null,
-        updatedAt: serverTimestamp()
-      });
-      setMessage('Customer updated successfully!');
+      const { error } = await supabase
+        .from('customers')
+        .update({
+          name: formData.name,
+          phone: formData.phone,
+          village: formData.village,
+          box_id: formData.box_id,
+          monthly_fee: Number(formData.monthly_fee),
+          status: formData.status,
+        })
+        .eq('id', customer.id);
+
+      if (error) throw error;
+
+      toast.success('Customer updated successfully!');
       setTimeout(() => {
-        setMessage('');
         setCustomer(null);
         setSearchBoxId('');
-      }, 2000);
-    } catch (error) {
-      setMessage('Error updating customer');
+        setFormData({ name: '', phone: '', village: '', box_id: '', monthly_fee: '', endDate: '', status: 'active' });
+      }, 1500);
+    } catch (error: any) {
+      toast.error(error.message || 'Error updating customer');
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      className="bg-white rounded-xl shadow-lg p-8"
-    >
+    <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}
+      className="bg-white dark:bg-gray-900 rounded-xl shadow-lg p-8">
       <div className="flex items-center space-x-3 mb-6">
         <Edit className="w-8 h-8 text-blue-600" />
-        <h2 className="text-2xl font-bold text-gray-800">Edit Customer Details</h2>
+        <h2 className="text-2xl font-bold text-gray-800 dark:text-gray-100">Edit Customer Details</h2>
       </div>
 
-      {message && (
-        <div className={`mb-4 p-4 rounded-lg ${
-          message.includes('successfully')
-            ? 'bg-green-100 text-green-700'
-            : 'bg-red-100 text-red-700'
-        }`}>
-          {message}
-        </div>
-      )}
-
+      {/* Search */}
       <div className="mb-8">
-        <label className="block text-sm font-medium text-gray-700 mb-2">
-          Search by Box ID
-        </label>
+        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Search by Box ID</label>
         <div className="flex space-x-4">
           <input
             type="text"
             value={searchBoxId}
             onChange={(e) => setSearchBoxId(e.target.value)}
-            onKeyPress={handleSearchKeyPress}
-            placeholder="Enter Box ID"
-            className="flex-1 px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
+            onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
+            placeholder="Enter Box ID (e.g. KKR-001)"
+            className="flex-1 px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none bg-white dark:bg-gray-800 dark:text-white"
           />
-          <button
-            onClick={handleSearch}
-            disabled={loading || !searchBoxId}
-            className="flex items-center space-x-2 bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition disabled:opacity-50"
-          >
-            <Search className="w-5 h-5" />
-            <span>Search</span>
+          <button onClick={handleSearch} disabled={loading || !searchBoxId.trim()}
+            className="flex items-center space-x-2 bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition disabled:opacity-50">
+            <Search className="w-5 h-5" /><span>Search</span>
           </button>
         </div>
       </div>
@@ -146,124 +118,50 @@ export const EditCustomer = () => {
       {customer && (
         <form onSubmit={handleSubmit} className="space-y-6">
           <div className="grid md:grid-cols-2 gap-6">
+            {[
+              { name: 'name', label: 'Full Name *', type: 'text' },
+              { name: 'phone', label: 'Phone Number *', type: 'tel' },
+              { name: 'village', label: 'Village *', type: 'text' },
+              { name: 'box_id', label: 'Box ID *', type: 'text' },
+            ].map(({ name, label, type }) => (
+              <div key={name}>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">{label}</label>
+                <input type={type} name={name} value={(formData as any)[name]} onChange={handleChange} required
+                  className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none bg-white dark:bg-gray-800 dark:text-white" />
+              </div>
+            ))}
+
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                First Name *
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                <IndianRupee className="inline w-4 h-4 mr-1" />Bill Amount *
               </label>
-              <input
-                type="text"
-                name="firstName"
-                value={formData.firstName}
-                onChange={handleChange}
-                required
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
-              />
+              <input type="number" name="monthly_fee" value={formData.monthly_fee} min="0" onChange={handleChange} required
+                className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none bg-white dark:bg-gray-800 dark:text-white" />
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Last Name *
-              </label>
-              <input
-                type="text"
-                name="lastName"
-                value={formData.lastName}
-                onChange={handleChange}
-                required
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
-              />
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Status</label>
+              <select name="status" value={formData.status} onChange={handleChange}
+                className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none bg-white dark:bg-gray-800 dark:text-white">
+                <option value="active">Active</option>
+                <option value="deactive">Deactive</option>
+              </select>
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Phone Number *
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                <Calendar className="inline w-4 h-4 mr-1" />End Date
               </label>
-              <input
-                type="tel"
-                name="phoneNumber"
-                value={formData.phoneNumber}
-                onChange={handleChange}
-                required
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Village *
-              </label>
-              <input
-                type="text"
-                name="village"
-                value={formData.village}
-                onChange={handleChange}
-                required
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Box ID *
-              </label>
-              <input
-                type="text"
-                name="boxId"
-                value={formData.boxId}
-                onChange={handleChange}
-                required
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                <IndianRupee className="inline w-4 h-4 mr-1" />
-                Bill Amount *
-              </label>
-              <input
-                type="number"
-                name="billAmount"
-                value={formData.billAmount}
-                onChange={handleChange}
-                required
-                min="0"
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
-              />
-              {Number(formData.billAmount) === 0 && (
-                <p className="text-sm text-green-600 mt-1">✓ Bill amount is 0 - will be marked as Paid</p>
-              )}
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                <Calendar className="inline w-4 h-4 mr-1" />
-                End Date
-              </label>
-              <input
-                type="date"
-                name="endDate"
-                value={formData.endDate}
-                onChange={handleChange}
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
-              />
+              <input type="date" name="endDate" value={formData.endDate} onChange={handleChange}
+                className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none bg-white dark:bg-gray-800 dark:text-white" />
             </div>
           </div>
 
-          <button
-            type="submit"
-            disabled={loading}
-            className="w-full bg-blue-600 text-white py-3 rounded-lg font-semibold hover:bg-blue-700 transition disabled:opacity-50 disabled:cursor-not-allowed"
-          >
+          <button type="submit" disabled={loading}
+            className="w-full bg-blue-600 text-white py-3 rounded-lg font-semibold hover:bg-blue-700 transition disabled:opacity-50">
             {loading ? 'Updating...' : 'Update Customer'}
           </button>
         </form>
-      )}
-
-      {customer && (
-        <div className="mt-6">
-          <UploadDocument customerId={customer.id} />
-        </div>
       )}
     </motion.div>
   );

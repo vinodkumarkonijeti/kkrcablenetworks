@@ -1,0 +1,128 @@
+-- KB: KKR Cable Network - Robust Schema Script
+-- This script creates the entire database structure. 
+-- Copy and paste this into the Supabase SQL Editor: https://supabase.com/dashboard/project/_/sql
+
+-- 1. CLEANUP (Optional - uncomment if you want to start fresh)
+-- DROP TABLE IF EXISTS public.activity_logs;
+-- DROP TABLE IF EXISTS public.notifications;
+-- DROP TABLE IF EXISTS public.payments;
+-- DROP TABLE IF EXISTS public.bills;
+-- DROP TABLE IF EXISTS public.customers;
+-- DROP TABLE IF EXISTS public.users;
+
+-- 2. CREATE TABLES
+CREATE TABLE IF NOT EXISTS public.users (
+    id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
+    name TEXT NOT NULL,
+    email TEXT UNIQUE NOT NULL,
+    role TEXT CHECK (role IN ('admin', 'operator')) DEFAULT 'operator',
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS public.customers (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    name TEXT NOT NULL,
+    phone TEXT NOT NULL,
+    box_id TEXT UNIQUE NOT NULL,
+    village TEXT NOT NULL,
+    mandal TEXT NOT NULL,
+    address TEXT,
+    status TEXT CHECK (status IN ('active', 'deactive')) DEFAULT 'active',
+    monthly_fee DECIMAL(10, 2) NOT NULL,
+    id_proof_url TEXT,
+    created_by UUID REFERENCES public.users(id),
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS public.bills (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    customer_id UUID REFERENCES public.customers(id) ON DELETE CASCADE,
+    month INTEGER CHECK (month BETWEEN 1 AND 12),
+    year INTEGER,
+    amount DECIMAL(10, 2) NOT NULL,
+    due_date DATE,
+    paid_status TEXT CHECK (paid_status IN ('paid', 'unpaid')) DEFAULT 'unpaid',
+    payment_date TIMESTAMPTZ,
+    invoice_url TEXT,
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS public.payments (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    customer_id UUID REFERENCES public.customers(id) ON DELETE CASCADE,
+    bill_id UUID REFERENCES public.bills(id) ON DELETE SET NULL,
+    payment_method TEXT,
+    transaction_id TEXT,
+    amount DECIMAL(10, 2) NOT NULL,
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS public.notifications (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    message TEXT NOT NULL,
+    type TEXT DEFAULT 'info',
+    is_read BOOLEAN DEFAULT FALSE,
+    created_by UUID REFERENCES public.users(id),
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS public.activity_logs (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID REFERENCES public.users(id),
+    action TEXT NOT NULL,
+    target_type TEXT NOT NULL,
+    target_id UUID,
+    details JSONB,
+    timestamp TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- 3. ENABLE ROW LEVEL SECURITY
+ALTER TABLE public.users ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.customers ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.bills ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.payments ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.notifications ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.activity_logs ENABLE ROW LEVEL SECURITY;
+
+-- 4. CREATE RLS POLICIES (Drop existing ones first to avoid duplicates)
+DO $$ 
+BEGIN
+    -- Users
+    DROP POLICY IF EXISTS "Admins can view all users" ON public.users;
+    DROP POLICY IF EXISTS "Users can view their own profile" ON public.users;
+    DROP POLICY IF EXISTS "Users can insert their own profile" ON public.users;
+    DROP POLICY IF EXISTS "Users can update their own profile" ON public.users;
+    
+    CREATE POLICY "Admins can view all users" ON public.users FOR SELECT USING (role = 'admin');
+    CREATE POLICY "Users can view their own profile" ON public.users FOR SELECT USING (id = auth.uid());
+    CREATE POLICY "Users can update their own profile" ON public.users FOR UPDATE USING (id = auth.uid());
+    
+    -- Customers
+    DROP POLICY IF EXISTS "Admins see all" ON public.customers;
+-- ... [rest of policies] ...
+END $$;
+
+-- 5. FUNCTION & TRIGGER FOR NEW USER CREATION
+-- This automatically creates a user record in public.users when a new user signs up via Supabase Auth
+CREATE OR REPLACE FUNCTION public.handle_new_user()
+RETURNS TRIGGER AS $$
+BEGIN
+  INSERT INTO public.users (id, name, email, role)
+  VALUES (
+    new.id,
+    COALESCE(new.raw_user_meta_data->>'full_name', new.email),
+    new.email,
+    COALESCE(new.raw_user_meta_data->>'role', 'operator')
+  );
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- Trigger the function every time a user is created
+DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
+CREATE TRIGGER on_auth_user_created
+  AFTER INSERT ON auth.users
+  FOR EACH ROW EXECUTE FUNCTION public.handle_new_user();
+
+-- 6. ENABLE REALTIME
+-- ...

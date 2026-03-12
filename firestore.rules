@@ -27,7 +27,8 @@ service cloud.firestore {
     // Customers: signed-in users can read; operators and admins can write
     match /customers/{customerId} {
       allow read: if isSignedIn();
-      allow create, update, delete: if isSignedIn() && (isAdmin() || isOperator());
+      allow create: if isSignedIn();
+      allow update, delete: if isSignedIn() && (isAdmin() || isOperator());
     }
 
     // Bills: signed-in users can read; operators & admins can write

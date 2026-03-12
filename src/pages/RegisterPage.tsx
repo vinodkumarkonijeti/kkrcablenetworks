@@ -51,12 +51,12 @@ export const RegisterPage = () => {
       const e: any = err;
       if (e?.code === 'auth/email-already-in-use') {
         setError('Email already in use. Try logging in or reset your password.');
-      } else if (e?.code === 'auth/configuration-not-found') {
+      } else if (e?.code === 'auth/configuration-not-found' || e?.code === 'auth/operation-not-allowed') {
         setError(
-          'Authentication provider not configured. Enable Email/Password sign-in in your Firebase Console (Authentication → Sign-in method).' 
+          'Authentication provider not enabled. Please enable "Email/Password" sign-in in your Firebase Console (Authentication → Sign-in method).'
         );
       } else {
-        setError('Failed to create account. ' + (e?.message ?? ''));
+        setError('Failed to create account. ' + (e?.message ?? 'Check your internet connection or Firebase setup.'));
       }
     } finally {
       setLoading(false);
@@ -97,7 +97,7 @@ export const RegisterPage = () => {
 
         {showSuccess && (
           <div className="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded mb-4">
-            Your account created successfully! Redirecting to login...
+            Account created! Redirecting to login...
           </div>
         )}
 

@@ -32,7 +32,7 @@ export const PaymentSection: React.FC<PaymentSectionProps> = ({ customer, onPaym
       {
         id: 'upi_1',
         type: 'upi',
-        upiId: 'kkrcablenetworks@upi',
+        upiId: '7661801838@ybl',
         isDefault: true
       },
       {

@@ -1,237 +1,167 @@
 import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
-import { useToast } from './ToastContext';
-import {
-  User as FirebaseUser,
-  onAuthStateChanged,
-  signInWithEmailAndPassword,
-  createUserWithEmailAndPassword,
-  signOut,
-  sendPasswordResetEmail,
-  fetchSignInMethodsForEmail,
-  updateEmail,
-  updatePassword,
-  sendEmailVerification
-} from 'firebase/auth';
-import { doc, setDoc, getDoc, serverTimestamp } from 'firebase/firestore';
-import { auth, db } from '../config/firebase';
-import { User } from '../types';
+import { supabase } from '../lib/supabase';
+import { User, UserRole } from '../types';
+import { Session, User as SupabaseUser } from '@supabase/supabase-js';
+import toast from 'react-hot-toast';
 
 interface AuthContextType {
-  currentUser: FirebaseUser | null;
+  user: SupabaseUser | null;
+  session: Session | null;
   userData: User | null;
   loading: boolean;
-  login: (email: string, password: string) => Promise<{ user: FirebaseUser; userData: User | null }>;
-  register: (email: string, password: string, userData: Omit<User, 'id' | 'createdAt'>) => Promise<void>;
-  logout: () => Promise<void>;
-  resetPassword: (email: string) => Promise<void>;
-  changeEmail: (newEmail: string) => Promise<void>;
-  changePassword: (newPassword: string) => Promise<void>;
-  sendVerificationEmail: () => Promise<void>;
-  isEmailVerified: () => boolean;
+  role: UserRole | null;
+  isAdmin: boolean;
+  isOperator: boolean;
+  signOut: () => Promise<void>;
+  register: (email: string, password: string, metadata: any) => Promise<void>;
+  signIn: (email: string, password: string) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-export function useAuth() {
-  const context = useContext(AuthContext);
-  if (!context) {
-    throw new Error('useAuth must be used within an AuthProvider');
-  }
-  return context;
-}
-
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [currentUser, setCurrentUser] = useState<FirebaseUser | null>(null);
+  const [user, setUser] = useState<SupabaseUser | null>(null);
+  const [session, setSession] = useState<Session | null>(null);
   const [userData, setUserData] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (user) => {
-      try {
-        setCurrentUser(user);
-        if (user) {
-          const userDocRef = doc(db, 'users', user.uid);
-          const userDoc = await getDoc(userDocRef);
-          if (userDoc.exists()) {
-            const userData = { id: user.uid, ...userDoc.data() } as User;
-            setUserData(userData);
-          } else {
-            // Do not auto-create a users doc here. Role assignment should occur
-            // explicitly (for example, when user chooses "Go to Portal").
-            setUserData(null);
-          }
-        } else {
-          setUserData(null);
-        }
-      } catch (err) {
-        console.error('Auth state change error:', err);
-        setUserData(null);
-      } finally {
+    // Safety timeout — if loading takes more than 5s, force it to false
+    const safetyTimer = setTimeout(() => {
+      setLoading(false);
+    }, 5000);
+
+    // Get initial session
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setSession(session);
+      setUser(session?.user ?? null);
+      if (session?.user) {
+        fetchUserData(session.user.id).finally(() => {
+          clearTimeout(safetyTimer);
+          setLoading(false);
+        });
+      } else {
+        clearTimeout(safetyTimer);
         setLoading(false);
       }
     });
 
-    return unsubscribe;
+    // Listen for auth changes
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
+      setSession(session);
+      setUser(session?.user ?? null);
+      if (session?.user) {
+        await fetchUserData(session.user.id);
+      } else {
+        setUserData(null);
+        setLoading(false);
+      }
+    });
+
+    return () => {
+      clearTimeout(safetyTimer);
+      subscription.unsubscribe();
+    };
   }, []);
 
-  const { addToast } = useToast();
-
-  const login = async (email: string, password: string) => {
+  const fetchUserData = async (userId: string) => {
     try {
-      // Check if account is locked
-      const lockout = localStorage.getItem('accountLockout');
-      if (lockout) {
-        const lockoutData = JSON.parse(lockout);
-        if (Date.now() < lockoutData.expiresAt) {
-          const remainingTime = Math.ceil((lockoutData.expiresAt - Date.now()) / 1000);
-          const err: any = new Error(`Account locked. Try again in ${remainingTime} seconds.`);
-          err.code = 'account/locked';
-          throw err;
-        } else {
-          localStorage.removeItem('accountLockout');
-          localStorage.removeItem('failedLoginAttempts');
+      const { data, error } = await supabase
+        .from('users')
+        .select('*')
+        .eq('id', userId)
+        .single();
+
+      if (error && error.code === 'PGRST116') {
+        // No profile found — create one automatically
+        const { data: { user: authUser } } = await supabase.auth.getUser();
+        if (authUser) {
+          const profileData = {
+            id: authUser.id,
+            name: authUser.user_metadata?.full_name || authUser.email?.split('@')[0] || 'User',
+            email: authUser.email!,
+            role: (authUser.user_metadata?.role || 'operator') as UserRole,
+          };
+          const { data: newProfile } = await supabase
+            .from('users')
+            .insert(profileData)
+            .select('*')
+            .single();
+          setUserData(newProfile ?? null);
         }
-      }
-
-      const userCredential = await signInWithEmailAndPassword(auth, email, password);
-      const signedInUser = userCredential.user;
-      
-      // Clear failed attempts on successful login
-      localStorage.removeItem('failedLoginAttempts');
-      addToast('Logged in successfully', 'success');
-
-      // Wait a brief moment for onAuthStateChanged to fire and populate userData
-      await new Promise(resolve => setTimeout(resolve, 500));
-
-      // Fetch the user data from Firestore (post-auth state update)
-      let resultUserData: User | null = null;
-      try {
-        const userDocRef = doc(db, 'users', signedInUser.uid);
-        const userDoc = await getDoc(userDocRef);
-        // fetched user doc for uid
-        if (userDoc.exists()) {
-          resultUserData = { id: signedInUser.uid, ...userDoc.data() } as User;
-        } else {
-          // Do not auto-create a users doc here; role assignment happens explicitly
-          resultUserData = null;
-        }
-      } catch (err) {
-        console.error('Error fetching user data after login:', err);
-      }
-      // Update context state so downstream components have userData immediately
-      setCurrentUser(signedInUser);
-      setUserData(resultUserData);
-      
-      // Wait a brief moment to ensure state update is processed
-      await new Promise(resolve => setTimeout(resolve, 100));
-      
-      return { user: signedInUser, userData: resultUserData };
-    } catch (err: any) {
-      // Track failed login attempts
-      const failedAttempts = parseInt(localStorage.getItem('failedLoginAttempts') || '0') + 1;
-      localStorage.setItem('failedLoginAttempts', failedAttempts.toString());
-
-      if (failedAttempts >= 3 && err.code !== 'account/locked') {
-        // Lock account for 3 minutes
-        const lockoutExpiry = Date.now() + 3 * 60 * 1000;
-        localStorage.setItem('accountLockout', JSON.stringify({ expiresAt: lockoutExpiry }));
-        addToast('Account locked due to too many failed login attempts. Try again in 3 minutes.', 'error');
-      } else if (err.code === 'account/locked') {
-        addToast(err.message, 'error');
+      } else if (!error && data) {
+        setUserData(data);
       } else {
-        addToast(err?.message || 'Login failed', 'error');
+        setUserData(null);
       }
-      throw err;
+    } catch {
+      setUserData(null);
     }
   };
 
-  const register = async (email: string, password: string, userData: Omit<User, 'id' | 'createdAt'>) => {
-    // Check whether the email already has sign-in methods before attempting to create
-    // This allows us to provide a clearer error to the caller instead of a generic failure
-    const methods = await fetchSignInMethodsForEmail(auth, email);
-    if (methods && methods.length > 0) {
-      // Throw an error with the same code Firebase uses so callers can handle it
-      const err: any = new Error('Email already in use');
-      err.code = 'auth/email-already-in-use';
-      throw err;
-    }
-
+  const signOut = async () => {
     try {
-      const userCredential = await createUserWithEmailAndPassword(auth, email, password);
-      await setDoc(doc(db, 'users', userCredential.user.uid), {
-        ...userData,
-        // default role is 'operator' unless explicitly provided
-        role: (userData as any)?.role || 'operator',
-        createdAt: serverTimestamp()
+      await supabase.auth.signOut();
+      setUserData(null);
+      toast.success('Logged out successfully');
+    } catch (error: any) {
+      toast.error(error.message || 'Error signing out');
+    }
+  };
+
+  const register = async (email: string, password: string, metadata: any) => {
+    try {
+      const { data, error } = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          data: {
+            full_name: `${metadata.firstName} ${metadata.lastName}`,
+            role: (metadata.occupation || 'operator').toLowerCase() as UserRole,
+          }
+        }
       });
-      addToast('Registration successful. Please verify your email.', 'success');
-    } catch (err: any) {
-      addToast(err?.message || 'Registration failed', 'error');
-      throw err;
-    }
-  };
 
-  const logout = async () => {
-    try {
-      await signOut(auth);
-      addToast('Logged out', 'info');
-    } catch (err: any) {
-      addToast(err?.message || 'Logout failed', 'error');
-      throw err;
-    }
-  };
-
-  const resetPassword = async (email: string) => {
-    try {
-      await sendPasswordResetEmail(auth, email);
-      addToast('Password reset email sent', 'info');
-    } catch (err: any) {
-      addToast(err?.message || 'Reset failed', 'error');
-      throw err;
-    }
-  };
-
-  const changeEmail = async (newEmail: string) => {
-    if (currentUser) {
-      await updateEmail(currentUser, newEmail);
-    }
-  };
-
-  const changePassword = async (newPassword: string) => {
-    if (currentUser) {
-      await updatePassword(currentUser, newPassword);
-    }
-  };
-
-  const sendVerificationEmail = async () => {
-    if (currentUser) {
-      try {
-        await sendEmailVerification(currentUser);
-        addToast('Verification email sent. Please check your inbox.', 'success');
-      } catch (err: any) {
-        addToast(err?.message || 'Failed to send verification email', 'error');
-        throw err;
+      if (error) throw error;
+      if (data.user) {
+        toast.success('Registration successful! You can now log in.');
       }
+    } catch (error: any) {
+      toast.error(error.message || 'Registration failed');
+      throw error;
     }
   };
 
-  const isEmailVerified = (): boolean => {
-    return currentUser?.emailVerified || false;
+  const signIn = async (email: string, password: string) => {
+    try {
+      const { error } = await supabase.auth.signInWithPassword({ email, password });
+      if (error) throw error;
+      toast.success('Welcome back!');
+    } catch (error: any) {
+      toast.error(error.message || 'Failed to login');
+      throw error;
+    }
   };
 
-  const value = {
-    currentUser,
-    userData,
-    loading,
-    login,
-    register,
-    logout,
-    resetPassword,
-    changeEmail,
-    changePassword,
-    sendVerificationEmail,
-    isEmailVerified
-  };
+  const role = userData?.role || null;
+  const isAdmin = role === 'admin';
+  const isOperator = role === 'operator';
 
-  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
+  return (
+    <AuthContext.Provider value={{
+      user, session, userData, loading,
+      role, isAdmin, isOperator,
+      signOut, register, signIn,
+    }}>
+      {children}
+    </AuthContext.Provider>
+  );
 }
+
+export const useAuth = () => {
+  const context = useContext(AuthContext);
+  if (context === undefined) {
+    throw new Error('useAuth must be used within an AuthProvider');
+  }
+  return context;
+};

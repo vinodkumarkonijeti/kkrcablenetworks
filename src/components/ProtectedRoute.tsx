@@ -1,39 +1,32 @@
-import { Navigate } from 'react-router-dom';
+import { Navigate, Outlet } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
-// Using react-router <Navigate /> behavior (reverted from SafeNavigate)
+import { UserRole } from '../types';
 
-type AllowedRole = 'admin' | 'operator' | 'customer';
+interface ProtectedRouteProps {
+  allowedRoles?: UserRole[];
+}
 
-export const ProtectedRoute = ({
-  children,
-  allowedRoles,
-}: {
-  children: React.ReactNode;
-  allowedRoles?: AllowedRole[];
-}) => {
-  const { currentUser, userData, loading } = useAuth();
+export const ProtectedRoute = ({ allowedRoles }: ProtectedRouteProps) => {
+  const { user, userData, loading, role } = useAuth();
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+      <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-950">
+        <div className="flex flex-col items-center gap-4">
+          <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-600"></div>
+          <p className="text-gray-500 dark:text-gray-400 font-medium">Verifying access...</p>
+        </div>
       </div>
     );
   }
 
-  if (!currentUser) {
-    console.log('[ProtectedRoute] User not logged in, redirecting to login');
-    return <Navigate to="/login" />;
+  if (!user) {
+    return <Navigate to="/login" replace />;
   }
 
-  // If allowedRoles provided, enforce role check
-  if (allowedRoles && allowedRoles.length > 0) {
-    const userRole = (userData as any)?.role as AllowedRole | undefined;
-    if (!userRole || !allowedRoles.includes(userRole)) {
-      console.warn('[ProtectedRoute] User role not authorized:', { userRole, allowedRoles });
-      return <Navigate to="/" />;
-    }
+  if (allowedRoles && role && !allowedRoles.includes(role)) {
+    return <Navigate to="/dashboard" replace />;
   }
 
-  return <>{children}</>;
+  return <Outlet />;
 };

@@ -1,55 +1,67 @@
-import { useEffect, useState } from 'react';
+import React from 'react';
 import { motion } from 'framer-motion';
 import Logo from './Logo';
 
-const LoadingScreen: React.FC<{ message?: string }> = ({ message = 'Loading...' }) => {
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    // Set timeout to show error if loading takes too long
-    const timeout = setTimeout(() => {
-      setError('Loading is taking longer than expected. Please refresh the page.');
-    }, 30000); // 30 seconds
-
-    return () => clearTimeout(timeout);
-  }, []);
-
-  if (error) {
-    return (
-      <div style={{ position: 'fixed', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: '#fff', zIndex: 50 }}>
-        <div style={{ textAlign: 'center', padding: '2rem', maxWidth: '32rem' }}>
-          <div style={{ fontSize: '2rem', marginBottom: '1rem', color: '#dc2626' }}>⚠️</div>
-          <p style={{ color: '#dc2626', fontWeight: '600', marginBottom: '1rem' }}>{error}</p>
-          <button 
-            onClick={() => window.location.reload()} 
-            style={{ padding: '0.5rem 1rem', backgroundColor: '#2563eb', color: 'white', borderRadius: '0.5rem', border: 'none', cursor: 'pointer' }}
-          >
-            Refresh Page
-          </button>
-        </div>
-      </div>
-    );
-  }
-
+const LoadingScreen: React.FC<{ message?: string }> = ({ message = 'Connecting to KKR Network...' }) => {
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-white dark:bg-gray-900">
-      <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="flex flex-col items-center gap-4">
-        <div className="w-28 h-28 rounded-full p-1 bg-gradient-to-br from-blue-500 to-indigo-600 shadow-lg flex items-center justify-center">
-          <div className="w-24 h-24 bg-white rounded-full flex items-center justify-center overflow-hidden dark:bg-gray-800">
-            <Logo fill size={96} />
+    <div className="fixed inset-0 z-[100] flex flex-col items-center justify-center bg-[#0f172a]">
+      {/* Animated Background Gradients */}
+      <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-blue-600/20 rounded-full blur-[120px] animate-pulse" />
+      <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-purple-600/20 rounded-full blur-[120px] animate-pulse delay-1000" />
+
+      <motion.div
+        initial={{ opacity: 0, scale: 0.8 }}
+        animate={{ opacity: 1, scale: 1 }}
+        transition={{ duration: 0.8, ease: "easeOut" }}
+        className="relative flex flex-col items-center"
+      >
+        {/* Logo Container with Glow */}
+        <div className="relative mb-12">
+          <motion.div
+            animate={{
+              scale: [1, 1.1, 1],
+              opacity: [0.5, 0.8, 0.5]
+            }}
+            transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" }}
+            className="absolute inset-0 bg-blue-500 blur-3xl rounded-full"
+          />
+          <div className="relative bg-white/10 backdrop-blur-2xl p-6 rounded-[2.5rem] border border-white/20 shadow-2xl">
+            <Logo size={120} className="rounded-3xl" />
           </div>
         </div>
 
-        <div className="w-56">
-          <div className="h-2 bg-gray-200 rounded-full overflow-hidden dark:bg-gray-800">
+        {/* Text and Progress Bar */}
+        <div className="text-center space-y-6 max-w-xs">
+          <motion.h2
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.3 }}
+            className="text-2xl font-bold text-white tracking-tight"
+          >
+            {message}
+          </motion.h2>
+
+          <div className="relative h-1.5 w-64 bg-white/10 rounded-full overflow-hidden border border-white/5">
             <motion.div
-              className="h-full bg-blue-600 dark:bg-indigo-400"
-              initial={{ width: '0%' }}
-              animate={{ width: '60%' }}
-              transition={{ ease: 'easeInOut', duration: 1.2, repeat: Infinity, repeatType: 'mirror' }}
+              initial={{ x: "-100%" }}
+              animate={{ x: "100%" }}
+              transition={{
+                duration: 2,
+                repeat: Infinity,
+                ease: "easeInOut"
+              }}
+              className="absolute inset-0 bg-gradient-to-r from-transparent via-blue-400 to-transparent"
             />
           </div>
-          <p className="mt-3 text-center text-gray-700 dark:text-gray-200">{message}</p>
+
+          <motion.p
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: 0.5 }}
+            className="text-gray-400 text-sm font-medium tracking-wide uppercase"
+          >
+            Please Wait
+          </motion.p>
         </div>
       </motion.div>
     </div>
