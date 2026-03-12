@@ -11,6 +11,8 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
+import { supabase } from '../lib/supabase';
+import toast from 'react-hot-toast';
 
 const SettingsPage = () => {
     const { userData, signOut } = useAuth();
@@ -101,24 +103,84 @@ const SettingsPage = () => {
                         )}
 
                         {activeTab === 'security' && (
-                            <div className="space-y-6">
-                                <h3 className="text-lg font-bold dark:text-white mb-4">Appearance</h3>
-                                <div className="flex items-center justify-between p-6 bg-gray-50 dark:bg-gray-800/50 rounded-3xl">
-                                    <div className="flex items-center gap-4">
-                                        <div className="p-3 bg-white dark:bg-gray-900 rounded-2xl">
-                                            {theme === 'dark' ? <Moon size={24} className="text-blue-500" /> : <Sun size={24} className="text-amber-500" />}
+                            <div className="space-y-8">
+                                <div>
+                                    <h3 className="text-xl font-bold dark:text-white mb-4">Security Settings</h3>
+                                    <div className="space-y-6">
+                                        <div className="bg-gray-50 dark:bg-gray-800/50 p-6 rounded-3xl border border-gray-100 dark:border-gray-800">
+                                            <h4 className="font-bold mb-4 flex items-center gap-2">
+                                                <Shield size={18} className="text-blue-500" /> Change Password
+                                            </h4>
+                                            <form className="space-y-4" onSubmit={async (e) => {
+                                                e.preventDefault();
+                                                const form = e.target as HTMLFormElement;
+                                                const newPassword = (form.elements.namedItem('newPassword') as HTMLInputElement).value;
+                                                const confirmPassword = (form.elements.namedItem('confirmPassword') as HTMLInputElement).value;
+
+                                                if (newPassword !== confirmPassword) {
+                                                    toast.error('Passwords do not match');
+                                                    return;
+                                                }
+                                                if (newPassword.length < 6) {
+                                                    toast.error('Password must be at least 6 characters');
+                                                    return;
+                                                }
+
+                                                const { error } = await supabase.auth.updateUser({ password: newPassword });
+                                                if (error) {
+                                                    toast.error(error.message);
+                                                } else {
+                                                    toast.success('Password updated successfully');
+                                                    form.reset();
+                                                }
+                                            }}>
+                                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                                    <div className="space-y-2">
+                                                        <label className="text-sm font-bold text-gray-700 dark:text-gray-300 ml-1">New Password</label>
+                                                        <input
+                                                            name="newPassword"
+                                                            type="password"
+                                                            placeholder="••••••••"
+                                                            className="w-full bg-white dark:bg-gray-900 border-none rounded-2xl py-3 px-4 focus:ring-2 focus:ring-blue-500 transition-all dark:text-white shadow-sm"
+                                                        />
+                                                    </div>
+                                                    <div className="space-y-2">
+                                                        <label className="text-sm font-bold text-gray-700 dark:text-gray-300 ml-1">Confirm New Password</label>
+                                                        <input
+                                                            name="confirmPassword"
+                                                            type="password"
+                                                            placeholder="••••••••"
+                                                            className="w-full bg-white dark:bg-gray-900 border-none rounded-2xl py-3 px-4 focus:ring-2 focus:ring-blue-500 transition-all dark:text-white shadow-sm"
+                                                        />
+                                                    </div>
+                                                </div>
+                                                <button
+                                                    type="submit"
+                                                    className="px-6 py-3 bg-blue-600 text-white font-bold rounded-2xl hover:bg-blue-500 transition-all shadow-lg shadow-blue-200 dark:shadow-none"
+                                                >
+                                                    Update Password
+                                                </button>
+                                            </form>
                                         </div>
-                                        <div>
-                                            <p className="font-bold dark:text-white">Dark Mode</p>
-                                            <p className="text-sm text-gray-500">Enable high-contrast night theme</p>
+
+                                        <div className="flex items-center justify-between p-6 bg-gray-50 dark:bg-gray-800/50 rounded-3xl">
+                                            <div className="flex items-center gap-4">
+                                                <div className="p-3 bg-white dark:bg-gray-900 rounded-2xl shadow-sm">
+                                                    {theme === 'dark' ? <Moon size={24} className="text-blue-500" /> : <Sun size={24} className="text-amber-500" />}
+                                                </div>
+                                                <div>
+                                                    <p className="font-bold dark:text-white">Dark Mode</p>
+                                                    <p className="text-sm text-gray-500">Enable high-contrast night theme</p>
+                                                </div>
+                                            </div>
+                                            <button
+                                                onClick={toggle}
+                                                className={`w-14 h-8 rounded-full transition-all relative ${theme === 'dark' ? 'bg-blue-600' : 'bg-gray-300'}`}
+                                            >
+                                                <div className={`absolute top-1 w-6 h-6 bg-white rounded-full shadow-md transition-all ${theme === 'dark' ? 'left-7' : 'left-1'}`} />
+                                            </button>
                                         </div>
                                     </div>
-                                    <button
-                                        onClick={toggle}
-                                        className={`w-14 h-8 rounded-full transition-all relative ${theme === 'dark' ? 'bg-blue-600' : 'bg-gray-300'}`}
-                                    >
-                                        <div className={`absolute top-1 w-6 h-6 bg-white rounded-full shadow-md transition-all ${theme === 'dark' ? 'left-7' : 'left-1'}`} />
-                                    </button>
                                 </div>
                             </div>
                         )}

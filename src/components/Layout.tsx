@@ -49,6 +49,28 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
                 <main className="flex-1 p-6 sm:p-10">
                     {children || <Outlet />}
                 </main>
+
+                {/* Footer */}
+                <footer className="bg-white dark:bg-gray-900 border-t border-gray-100 dark:border-gray-800 p-8 sm:px-10 text-center sm:text-left">
+                    <div className="flex flex-col md:flex-row justify-between items-center gap-6">
+                        <div className="space-y-2">
+                            <h3 className="font-bold text-lg bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
+                                KKR CABLE NETWORKS
+                            </h3>
+                            <p className="text-sm text-gray-500 max-w-sm">
+                                Narsingolu village, zarugumalli mandal, prakasam district, Andhra Pradesh, India, 523271
+                            </p>
+                        </div>
+                        <div className="text-center md:text-right space-y-2">
+                            <p className="text-sm font-medium text-gray-600 dark:text-gray-300">
+                                Contact: <a href="mailto:kkrcablenetworks@gmail.com" className="text-blue-600 hover:underline">kkrcablenetworks@gmail.com</a>
+                            </p>
+                            <p className="text-xs text-gray-400">
+                                &copy; {new Date().getFullYear()} KKR Cable Networks. All rights reserved.
+                            </p>
+                        </div>
+                    </div>
+                </footer>
             </div>
         </div>
     );

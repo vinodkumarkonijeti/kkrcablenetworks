@@ -67,6 +67,20 @@ export const AddCustomer = () => {
       await logActivity(user.id, userData?.name || 'User', 'CREATE', 'CUSTOMER', data.id, customerName, `Added new customer with Box ID: ${formData.boxId}`);
 
       toast.success('Customer added successfully!');
+      
+      // WhatsApp Automation Trigger
+      const confirmMessage = window.confirm('Customer added! Would you like to send the welcome message via WhatsApp?');
+      if (confirmMessage) {
+          const { sendAutomationMessage } = await import('../../utils/automation');
+          const link = await sendAutomationMessage({
+              phone: formData.phoneNumber,
+              customerName: customerName,
+              type: 'welcome',
+              details: { box_id: formData.boxId }
+          });
+          window.open(link, '_blank');
+      }
+
       setFormData({
         firstName: '', lastName: '', phoneNumber: '', village: '',
         mandal: '', pincode: '', boxId: '',

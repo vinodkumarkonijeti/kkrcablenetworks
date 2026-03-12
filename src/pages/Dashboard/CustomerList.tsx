@@ -91,21 +91,35 @@ export const CustomerList = () => {
   };
 
   const exportToExcel = () => {
-    const data = getFiltered([...activeCustomers, ...deactiveCustomers]).map((c) => ({
-      'Name': c.name,
-      'Phone': c.phone,
-      'Village': c.village,
-      'Mandal': c.mandal,
-      'Box ID': c.box_id,
-      'Monthly Fee (₹)': c.monthly_fee,
-      'Status': c.status,
-    }));
-    if (!data.length) { addToast('No customers to export', 'info'); return; }
-    const ws = XLSX.utils.json_to_sheet(data);
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, 'Customers');
-    XLSX.writeFile(wb, `KKR_Customers_${new Date().toISOString().slice(0, 10)}.xlsx`);
-    addToast(`Exported ${data.length} customers`, 'success');
+    try {
+      const allCustomers = [...activeCustomers, ...deactiveCustomers];
+      const filteredData = getFiltered(allCustomers);
+      
+      if (!filteredData.length) { 
+        addToast('No customers to export', 'info'); 
+        return; 
+      }
+
+      const data = filteredData.map((c) => ({
+        'Name': c.name || 'N/A',
+        'Phone': c.phone || 'N/A',
+        'Box ID': c.box_id || 'N/A',
+        'Village': c.village || 'N/A',
+        'Mandal': c.mandal || 'N/A',
+        'Monthly Fee (₹)': c.monthly_fee || 0,
+        'Status': c.status || 'N/A',
+        'Created At': new Date(c.created_at).toLocaleDateString()
+      }));
+
+      const ws = XLSX.utils.json_to_sheet(data);
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, 'Customers');
+      XLSX.writeFile(wb, `KKR_Customers_${new Date().toISOString().slice(0, 10)}.xlsx`);
+      addToast(`Exported ${data.length} customers to Excel`, 'success');
+    } catch (error) {
+      console.error('Export Error:', error);
+      addToast('Failed to export to Excel', 'error');
+    }
   };
 
   const exportToPDF = async () => {
