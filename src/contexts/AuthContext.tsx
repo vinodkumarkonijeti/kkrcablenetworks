@@ -117,7 +117,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         options: {
           data: {
             full_name: metadata.name || `${metadata.firstName} ${metadata.lastName}`,
-            role: (metadata.role || 'operator').toLowerCase() as UserRole,
+            role: (metadata.role || 'customer').toLowerCase() as UserRole,
           }
         }
       });

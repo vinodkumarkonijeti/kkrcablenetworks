@@ -50,6 +50,10 @@ const LoginPage = () => {
           toast.error('This is for Operators. Use Customer Portal login.');
           return;
       }
+      if (loginType === 'customer' && profile.role !== 'customer') {
+          toast.error('This account is an Operator. Please use the Operator login tab.');
+          return;
+      }
 
       // 1. Role-based Redirection
       if (profile.role === 'admin' || profile.role === 'operator') {

@@ -7,7 +7,7 @@ interface ProtectedRouteProps {
 }
 
 export const ProtectedRoute = ({ allowedRoles }: ProtectedRouteProps) => {
-  const { user, userData, loading, role } = useAuth();
+  const { user, loading, role } = useAuth();
 
   if (loading) {
     return (
@@ -25,7 +25,7 @@ export const ProtectedRoute = ({ allowedRoles }: ProtectedRouteProps) => {
   }
 
   if (allowedRoles && role && !allowedRoles.includes(role)) {
-    return <Navigate to="/dashboard" replace />;
+    return <Navigate to={role === 'customer' ? '/portal' : '/dashboard'} replace />;
   }
 
   return <Outlet />;
