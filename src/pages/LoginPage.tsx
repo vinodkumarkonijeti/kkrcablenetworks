@@ -201,7 +201,7 @@ const LoginPage = () => {
 
           <div className="mt-8 pt-8 border-t border-white/10 text-center">
             <p className="text-gray-400 text-sm">
-              Don't have access? <button onClick={() => navigate('/register')} className="text-blue-400 font-semibold cursor-pointer hover:underline">Register Here</button>
+              Don't have access? <button onClick={() => navigate(loginType === 'operator' ? '/register' : '/customer-register')} className="text-blue-400 font-semibold cursor-pointer hover:underline">Register Here</button>
             </p>
           </div>
         </div>

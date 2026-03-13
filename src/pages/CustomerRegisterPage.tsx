@@ -55,6 +55,7 @@ export const CustomerRegisterPage = () => {
           data: {
             full_name: formData.name,
             role: 'customer', // Explicitly customer
+            occupation: 'Customer', // Explicitly set for backend requirements
           }
         }
       });
